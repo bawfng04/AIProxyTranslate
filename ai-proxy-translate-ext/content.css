@@ -1,129 +1,42 @@
-/* ============================================================
-   content.css — AI Proxy Translate Chrome Extension
-   Floating toolbar + result modal styles
-   All selectors are namespaced to avoid collision with page CSS.
-   ============================================================ */
+/* ================================================================
+   content.css — AI Proxy Translate  |  Glassmorphism Edition
+   All selectors namespaced with #ai-proxy- to avoid page conflicts
+   ================================================================ */
 
-/* --- Reset & font import via @import not allowed in extensions,
-       so we define everything inline with system fonts --- */
-
-/* ---- Floating Toolbar ---- */
-#ai-proxy-toolbar {
-    position: absolute;
-    z-index: 2147483646;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    /* wrap onto multiple rows when buttons overflow */
-    gap: 5px;
-    padding: 8px 10px;
-    max-width: min(560px, calc(100vw - 24px));
-    /* never exceed viewport */
-    background: #1a1a2e;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.45),
-        0 2px 8px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-    animation: ai-proxy-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    pointer-events: all;
-}
+/* ── Keyframe library ─────────────────────────────────────────── */
 
 @keyframes ai-proxy-pop-in {
-    from {
+    0% {
         opacity: 0;
-        transform: scale(0.85) translateY(4px);
+        transform: scale(0.82) translateY(8px);
     }
 
-    to {
+    65% {
+        opacity: 1;
+        transform: scale(1.04) translateY(-2px);
+    }
+
+    100% {
         opacity: 1;
         transform: scale(1) translateY(0);
     }
 }
 
-/* ---- Action Buttons ---- */
-.ai-proxy-btn {
-    all: unset;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    color: #e2e8f0;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 7px;
-    cursor: pointer;
-    white-space: nowrap;
-    max-width: 160px;
-    /* prevent very long labels from stretching the bar */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    box-sizing: border-box;
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease,
-        color 0.15s ease,
-        transform 0.1s ease;
-    line-height: 1.2;
-}
+@keyframes ai-proxy-slide-up {
+    0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+    }
 
-.ai-proxy-btn:hover:not(:disabled) {
-    background: rgba(139, 92, 246, 0.35);
-    border-color: rgba(139, 92, 246, 0.6);
-    color: #fff;
-    transform: translateY(-1px);
-}
+    60% {
+        opacity: 1;
+        transform: translateY(-3px) scale(1.01);
+    }
 
-.ai-proxy-btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-.ai-proxy-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.ai-proxy-btn--close {
-    padding: 5px 8px;
-    color: #94a3b8;
-    background: transparent;
-    border-color: transparent;
-    font-size: 16px;
-    line-height: 1;
-}
-
-.ai-proxy-btn--close:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: rgba(239, 68, 68, 0.4);
-    color: #fca5a5;
-}
-
-.ai-proxy-btn--loading {
-    background: rgba(139, 92, 246, 0.2) !important;
-    border-color: rgba(139, 92, 246, 0.5) !important;
-    color: #a78bfa !important;
-    max-width: 180px !important;
-    /* slightly wider to fit spinner + text */
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* ---- Spinner ---- */
-.ai-proxy-spinner {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border: 2px solid rgba(167, 139, 250, 0.3);
-    border-top-color: #a78bfa;
-    border-radius: 50%;
-    animation: ai-proxy-spin 0.7s linear infinite;
-    flex-shrink: 0;
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 @keyframes ai-proxy-spin {
@@ -132,56 +45,275 @@
     }
 }
 
-/* ---- Result Modal ---- */
-#ai-proxy-result-modal {
+@keyframes ai-proxy-shimmer {
+    0% {
+        background-position: -200% center;
+    }
+
+    100% {
+        background-position: 200% center;
+    }
+}
+
+@keyframes ai-proxy-pulse-ring {
+    0% {
+        box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55);
+    }
+
+    70% {
+        box-shadow: 0 0 0 8px rgba(139, 92, 246, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+    }
+}
+
+@keyframes ai-proxy-border-glow {
+
+    0%,
+    100% {
+        border-color: rgba(139, 92, 246, 0.4);
+    }
+
+    50% {
+        border-color: rgba(196, 181, 253, 0.75);
+    }
+}
+
+/* ── Floating Toolbar ─────────────────────────────────────────── */
+
+#ai-proxy-toolbar {
+    /* Layout */
     position: absolute;
-    z-index: 2147483645;
-    /* Responsive: at least 280px, up to 440px, but never exceed viewport */
-    width: clamp(280px, 440px, calc(100vw - 24px));
-    max-height: calc(100vh - 60px);
-    /* cap by viewport so body scroll activates */
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 8px 10px;
+    max-width: min(580px, calc(100vw - 24px));
+
+    /* Glassmorphism core */
+    background: rgba(12, 10, 30, 0.62);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+    /* Glowing border */
+    border: 1px solid rgba(139, 92, 246, 0.38);
+    border-radius: 14px;
+
+    /* Layered shadows: depth + colour glow */
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.35),
+        0 8px 28px rgba(0, 0, 0, 0.45),
+        0 0 24px rgba(109, 40, 217, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 0 20px rgba(139, 92, 246, 0.04);
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    animation: ai-proxy-pop-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    pointer-events: all;
+
+    /* Animated border glow */
+    animation: ai-proxy-pop-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+        ai-proxy-border-glow 3s ease-in-out 0.32s infinite;
+}
+
+/* ── Action Buttons ───────────────────────────────────────────── */
+
+.ai-proxy-btn {
+    all: unset;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 13px;
+    max-width: 155px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    font-size: 11.5px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    color: rgba(226, 232, 240, 0.9);
+
+    /* Glass button surface */
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.18s ease;
+}
+
+/* Shimmer layer on hover */
+.ai-proxy-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.12) 50%,
+            transparent 70%);
+    background-size: 200% 100%;
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.ai-proxy-btn:hover:not(:disabled)::before {
+    opacity: 1;
+    animation: ai-proxy-shimmer 0.55s ease forwards;
+}
+
+.ai-proxy-btn:hover:not(:disabled) {
+    background: rgba(139, 92, 246, 0.28);
+    border-color: rgba(167, 139, 250, 0.65);
+    color: #f0ebff;
+    transform: translateY(-2px);
+    box-shadow:
+        0 4px 16px rgba(109, 40, 217, 0.35),
+        0 0 8px rgba(139, 92, 246, 0.25);
+}
+
+.ai-proxy-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
+}
+
+.ai-proxy-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Close (×) button */
+.ai-proxy-btn--close {
+    padding: 5px 9px;
+    max-width: none;
+    font-size: 16px;
+    line-height: 1;
+    color: rgba(148, 163, 184, 0.7);
+    background: transparent;
+    border-color: transparent;
+}
+
+.ai-proxy-btn--close:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+
+/* Loading state */
+.ai-proxy-btn--loading {
+    background: rgba(109, 40, 217, 0.22) !important;
+    border-color: rgba(167, 139, 250, 0.55) !important;
+    color: #c4b5fd !important;
+    max-width: 175px !important;
+    animation: ai-proxy-pulse-ring 1.4s ease-out infinite !important;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────── */
+
+.ai-proxy-spinner {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border: 2px solid rgba(196, 181, 253, 0.25);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: ai-proxy-spin 0.65s linear infinite;
+}
+
+/* ── Result Modal ─────────────────────────────────────────────── */
+
+#ai-proxy-result-modal {
+    position: fixed;
+    /* sticks to viewport — never scrolls with the page */
+    z-index: 2147483646;
+    width: clamp(300px, 460px, calc(100vw - 24px));
+    max-height: min(520px, calc(100vh - 60px));
+    /* firm cap → body scroll activates */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: #1a1a2e;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 14px;
+
+    /* Glassmorphism surface */
+    background: rgba(10, 8, 25, 0.72);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+
+    /* Glowing gradient border */
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    border-radius: 18px;
+
+    /* Rich multi-layer shadow */
     box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.55),
-        0 4px 16px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        0 4px 10px rgba(0, 0, 0, 0.4),
+        0 16px 48px rgba(0, 0, 0, 0.55),
+        0 0 40px rgba(109, 40, 217, 0.15),
+        0 0 80px rgba(139, 92, 246, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 0 30px rgba(139, 92, 246, 0.03);
+
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-    animation: ai-proxy-slide-in 0.22s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+    animation: ai-proxy-slide-up 0.30s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     pointer-events: all;
 }
 
-@keyframes ai-proxy-slide-in {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.97);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+/* Top accent gradient bar */
+#ai-proxy-result-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(139, 92, 246, 0.8) 30%,
+            rgba(196, 181, 253, 1) 50%,
+            rgba(139, 92, 246, 0.8) 70%,
+            transparent);
+    border-radius: 18px 18px 0 0;
+    pointer-events: none;
 }
 
-/* --- Modal Header --- */
+/* ── Modal Header ─────────────────────────────────────────────── */
+
 .ai-proxy-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 13px 16px 11px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     flex-shrink: 0;
 }
 
 .ai-proxy-modal-title {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
-    color: #a78bfa;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+
+    /* Gradient text */
+    background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .ai-proxy-modal-close {
@@ -189,41 +321,45 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
-    font-size: 18px;
+    width: 24px;
+    height: 24px;
+    font-size: 17px;
     line-height: 1;
-    color: #64748b;
+    color: rgba(100, 116, 139, 0.8);
     cursor: pointer;
     border-radius: 50%;
-    transition: color 0.15s, background 0.15s;
+    transition: color 0.15s, background 0.15s, transform 0.15s;
 }
 
 .ai-proxy-modal-close:hover {
     color: #fca5a5;
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.14);
+    transform: rotate(90deg);
 }
 
-/* --- Modal Body --- */
+/* ── Modal Body ───────────────────────────────────────────────── */
+
 .ai-proxy-modal-body {
     flex: 1;
+    min-height: 0;
+    /* CRITICAL: lets flex child shrink so overflow-y activates */
     overflow-y: auto;
     overflow-x: hidden;
-    /* no horizontal scroll */
-    padding: 14px 16px;
+    padding: 14px 18px;
+
     font-size: 13.5px;
-    line-height: 1.75;
-    color: #cbd5e1;
+    line-height: 1.8;
+    color: rgba(203, 213, 225, 0.92);
+
     word-break: break-word;
-    /* break long words / URLs */
     overflow-wrap: anywhere;
-    /* modern fallback */
+
     scrollbar-width: thin;
-    scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
+    scrollbar-color: rgba(167, 139, 250, 0.7) rgba(255, 255, 255, 0.05);
 }
 
 .ai-proxy-modal-body::-webkit-scrollbar {
-    width: 5px;
+    width: 4px;
 }
 
 .ai-proxy-modal-body::-webkit-scrollbar-track {
@@ -231,17 +367,19 @@
 }
 
 .ai-proxy-modal-body::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.4);
+    background: rgba(139, 92, 246, 0.45);
     border-radius: 99px;
 }
 
+/* Error state */
 .ai-proxy-modal-body--error {
-    color: #fca5a5;
+    color: rgba(252, 165, 165, 0.9);
 }
 
-/* Rendered content elements */
+/* ── Body content typography ──────────────────────────────────── */
+
 .ai-proxy-modal-body p {
-    margin: 0 0 8px;
+    margin: 0 0 9px;
 }
 
 .ai-proxy-modal-body p:last-child {
@@ -249,12 +387,12 @@
 }
 
 .ai-proxy-modal-body ul {
-    margin: 6px 0;
-    padding-left: 18px;
+    margin: 6px 0 10px;
+    padding-left: 20px;
 }
 
 .ai-proxy-modal-body li {
-    margin-bottom: 4px;
+    margin-bottom: 5px;
 }
 
 .ai-proxy-modal-body strong {
@@ -262,12 +400,17 @@
     font-weight: 700;
 }
 
+/* Headings rendered from ### */
 .ai-proxy-modal-body h2,
 .ai-proxy-modal-body h3 {
-    color: #a78bfa;
     font-weight: 700;
-    margin: 12px 0 4px;
-    line-height: 1.3;
+    line-height: 1.35;
+    margin: 14px 0 5px;
+    /* Gradient text matching the title */
+    background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .ai-proxy-modal-body h2 {
@@ -283,9 +426,10 @@
     margin-top: 0;
 }
 
-/* --- Modal Footer --- */
+/* ── Modal Footer ─────────────────────────────────────────────── */
+
 .ai-proxy-modal-footer {
-    padding: 10px 14px;
+    padding: 10px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
     display: flex;
@@ -296,21 +440,33 @@
     all: unset;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
+    gap: 6px;
+    padding: 6px 14px;
+
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     color: #a78bfa;
-    background: rgba(139, 92, 246, 0.12);
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    border-radius: 7px;
+
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    border-radius: 8px;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+    transition: background 0.16s, border-color 0.16s, color 0.16s,
+        transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.16s;
 }
 
 .ai-proxy-copy-btn:hover {
-    background: rgba(139, 92, 246, 0.25);
-    border-color: rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.22);
+    border-color: rgba(167, 139, 250, 0.6);
     color: #c4b5fd;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(109, 40, 217, 0.28);
+}
+
+.ai-proxy-copy-btn:active {
+    transform: scale(0.97);
 }

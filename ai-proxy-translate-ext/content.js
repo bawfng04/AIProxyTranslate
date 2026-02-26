@@ -34,17 +34,17 @@
             systemPrompt:
                 'Bạn là một kỹ sư phần mềm chuyên nghiệp. Hãy phân tích đoạn code sau: giải thích logic ngắn gọn, đánh giá Độ phức tạp Thời gian và Không gian (Big O), và chỉ ra các lỗi tiềm ẩn, trường hợp biên, hoặc anti-pattern nếu có. Trả lời hoàn toàn bằng tiếng Việt.',
         },
-        {
-            id: 'btn-academic-explain',
-            label: 'Academic',
-            systemPrompt:
-                'Hãy đóng vai một giáo sư đại học. Giải thích đoạn văn học thuật, công thức, hoặc khái niệm học máy sau theo cách có cấu trúc. Phân tích các phần phức tạp và đưa ra ví dụ thực tế dễ hiểu. Trả lời hoàn toàn bằng tiếng Việt.',
-        },
+        // {
+        //     id: 'btn-academic-explain',
+        //     label: 'Academic',
+        //     systemPrompt:
+        //         'Hãy đóng vai một giáo sư đại học. Giải thích đoạn văn học thuật, công thức, hoặc khái niệm học máy sau theo cách có cấu trúc. Phân tích các phần phức tạp và đưa ra ví dụ thực tế dễ hiểu. Trả lời hoàn toàn bằng tiếng Việt.',
+        // },
         {
             id: 'btn-fix-grammar',
             label: 'Polish English',
             systemPrompt:
-                'Hãy đóng vai một người viết kỹ thuật bản ngữ tiếng Anh. Sửa các lỗi ngữ pháp và chính tả trong đoạn văn sau, sau đó viết lại để nghe tự nhiên, chuyên nghiệp và rõ ràng. Sau bản sửa, hãy giải thích ngắn gọn những thay đổi chính bằng tiếng Việt.',
+                'Hãy đóng vai một người viết kỹ thuật bản ngữ tiếng Anh. Sửa các lỗi ngữ pháp và chính tả trong đoạn văn sau, sau đó viết lại để nghe tự nhiên hơn, và thái độ sẽ phụ thuộc vào nội dung gốc, nếu nội dung gốc là tiêu cực thì thái độ sẽ là tiêu cực, nếu nội dung gốc là tích cực thì thái độ sẽ là tích cực, nếu nội dung gốc là trung lập thì thái độ sẽ là trung lập.',
         }
     ];
 
@@ -57,13 +57,37 @@
     // --- Initialization ---
     init();
 
+    // ── Context-validity guard ──────────────────────────────────
+    // When the extension is reloaded while a tab is open, the old
+    // content script's chrome.* connection is severed.  Any further
+    // chrome API call throws "Extension context invalidated".
+    // We detect this early and cleanly remove ourselves.
+
+    function isContextValid() {
+        try {
+            // chrome.runtime.id is undefined once the context is gone
+            return !!(chrome && chrome.runtime && chrome.runtime.id);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function selfDestruct() {
+        try { if (toolbar) toolbar.remove(); } catch (_) { }
+        try { if (resultModal) resultModal.remove(); } catch (_) { }
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('keydown', onKeyDown);
+    }
+
     function init() {
         injectToolbar();
         injectResultModal();
         document.addEventListener('mouseup', onMouseUp);
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') hideAll();
-        });
+        document.addEventListener('keydown', onKeyDown);
+    }
+
+    function onKeyDown(e) {
+        if (e.key === 'Escape') hideAll();
     }
 
     // --------------------------------------------------------------------------
@@ -149,6 +173,14 @@
         resultModal.setAttribute('role', 'dialog');
         resultModal.setAttribute('aria-modal', 'true');
         resultModal.style.display = 'none';
+
+        // Prevent wheel events from bubbling to the page while the modal is open
+        resultModal.addEventListener('wheel', (e) => {
+            const body = resultModal.querySelector('.ai-proxy-modal-body');
+            if (!body) return;
+            e.stopPropagation();
+        }, { passive: true });
+
         document.body.appendChild(resultModal);
     }
 
@@ -161,7 +193,7 @@
 
         const title = document.createElement('span');
         title.className = 'ai-proxy-modal-title';
-        title.textContent = isError ? '⚠️ Error' : '✨ AI Result';
+        title.textContent = isError ? 'Error' : 'Result - bawfng04 Cloudflare Proxy API';
         header.appendChild(title);
 
         const closeBtn = document.createElement('button');
@@ -197,7 +229,7 @@
             resultModal.appendChild(footer);
         }
 
-        resultModal.style.display = 'block';
+        resultModal.style.display = 'flex'; /* must be flex for column height constraint */
 
         // Position below the anchor element (button that was clicked)
         positionModalNearAnchor(anchorEl);
@@ -230,8 +262,9 @@
         }
         top = Math.max(MARGIN, top);
 
-        resultModal.style.left = `${left + window.scrollX}px`;
-        resultModal.style.top = `${top + window.scrollY}px`;
+        // position:fixed uses viewport coords — no scroll offset needed
+        resultModal.style.left = `${left}px`;
+        resultModal.style.top = `${top}px`;
     }
 
     function hideResultModal() {
@@ -273,7 +306,9 @@
             }
 
             // Load custom buttons then show toolbar
+            if (!isContextValid()) { selfDestruct(); return; }
             chrome.storage.sync.get(['customButtons'], (result) => {
+                if (chrome.runtime.lastError) return; // context gone mid-call
                 const customButtons = (result.customButtons || []).map((cb) => ({
                     id: `custom-${cb.id}`,
                     label: cb.name,
@@ -301,6 +336,11 @@
 
         // Hide any previous result
         hideResultModal();
+
+        if (!isContextValid()) {
+            selfDestruct();
+            return;
+        }
 
         chrome.runtime.sendMessage(
             {
