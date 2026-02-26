@@ -1,0 +1,316 @@
+/* ============================================================
+   content.css — AI Proxy Translate Chrome Extension
+   Floating toolbar + result modal styles
+   All selectors are namespaced to avoid collision with page CSS.
+   ============================================================ */
+
+/* --- Reset & font import via @import not allowed in extensions,
+       so we define everything inline with system fonts --- */
+
+/* ---- Floating Toolbar ---- */
+#ai-proxy-toolbar {
+    position: absolute;
+    z-index: 2147483646;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    /* wrap onto multiple rows when buttons overflow */
+    gap: 5px;
+    padding: 8px 10px;
+    max-width: min(560px, calc(100vw - 24px));
+    /* never exceed viewport */
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    animation: ai-proxy-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    pointer-events: all;
+}
+
+@keyframes ai-proxy-pop-in {
+    from {
+        opacity: 0;
+        transform: scale(0.85) translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ---- Action Buttons ---- */
+.ai-proxy-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 160px;
+    /* prevent very long labels from stretching the bar */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-sizing: border-box;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.1s ease;
+    line-height: 1.2;
+}
+
+.ai-proxy-btn:hover:not(:disabled) {
+    background: rgba(139, 92, 246, 0.35);
+    border-color: rgba(139, 92, 246, 0.6);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.ai-proxy-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.ai-proxy-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ai-proxy-btn--close {
+    padding: 5px 8px;
+    color: #94a3b8;
+    background: transparent;
+    border-color: transparent;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ai-proxy-btn--close:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+.ai-proxy-btn--loading {
+    background: rgba(139, 92, 246, 0.2) !important;
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    color: #a78bfa !important;
+    max-width: 180px !important;
+    /* slightly wider to fit spinner + text */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Spinner ---- */
+.ai-proxy-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid rgba(167, 139, 250, 0.3);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: ai-proxy-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes ai-proxy-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---- Result Modal ---- */
+#ai-proxy-result-modal {
+    position: absolute;
+    z-index: 2147483645;
+    /* Responsive: at least 280px, up to 440px, but never exceed viewport */
+    width: clamp(280px, 440px, calc(100vw - 24px));
+    max-height: calc(100vh - 60px);
+    /* cap by viewport so body scroll activates */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.55),
+        0 4px 16px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    animation: ai-proxy-slide-in 0.22s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+    pointer-events: all;
+}
+
+@keyframes ai-proxy-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* --- Modal Header --- */
+.ai-proxy-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.ai-proxy-modal-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.02em;
+}
+
+.ai-proxy-modal-close {
+    all: unset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 18px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+}
+
+.ai-proxy-modal-close:hover {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* --- Modal Body --- */
+.ai-proxy-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* no horizontal scroll */
+    padding: 14px 16px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: #cbd5e1;
+    word-break: break-word;
+    /* break long words / URLs */
+    overflow-wrap: anywhere;
+    /* modern fallback */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
+}
+
+.ai-proxy-modal-body::-webkit-scrollbar {
+    width: 5px;
+}
+
+.ai-proxy-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-proxy-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4);
+    border-radius: 99px;
+}
+
+.ai-proxy-modal-body--error {
+    color: #fca5a5;
+}
+
+/* Rendered content elements */
+.ai-proxy-modal-body p {
+    margin: 0 0 8px;
+}
+
+.ai-proxy-modal-body p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-proxy-modal-body ul {
+    margin: 6px 0;
+    padding-left: 18px;
+}
+
+.ai-proxy-modal-body li {
+    margin-bottom: 4px;
+}
+
+.ai-proxy-modal-body strong {
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+.ai-proxy-modal-body h2,
+.ai-proxy-modal-body h3 {
+    color: #a78bfa;
+    font-weight: 700;
+    margin: 12px 0 4px;
+    line-height: 1.3;
+}
+
+.ai-proxy-modal-body h2 {
+    font-size: 13.5px;
+}
+
+.ai-proxy-modal-body h3 {
+    font-size: 13px;
+}
+
+.ai-proxy-modal-body h2:first-child,
+.ai-proxy-modal-body h3:first-child {
+    margin-top: 0;
+}
+
+/* --- Modal Footer --- */
+.ai-proxy-modal-footer {
+    padding: 10px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ai-proxy-copy-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ai-proxy-copy-btn:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.6);
+    color: #c4b5fd;
+}

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Proxy Translate — Settings</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 420px;
+      min-height: 520px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      font-size: 13px;
+      background: #0f0f1a;
+      color: #cbd5e1;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 18px 14px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .header-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px rgba(124, 58, 237, 0.45);
+    }
+
+    .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.01em;
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    /* ── Status Banner ── */
+    #status-banner {
+      display: none;
+      padding: 9px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      animation: fadein 0.2s ease;
+    }
+
+    #status-banner.success {
+      background: rgba(34, 197, 94, 0.12);
+      color: #86efac;
+      border-bottom: 1px solid rgba(34,197,94,0.2);
+    }
+
+    #status-banner.error {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border-bottom: 1px solid rgba(239,68,68,0.2);
+    }
+
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ── Scroll container ── */
+    .content {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-height: 560px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(124, 58, 237, 0.4) transparent;
+    }
+
+    .content::-webkit-scrollbar { width: 4px; }
+    .content::-webkit-scrollbar-thumb {
+      background: rgba(124, 58, 237, 0.4);
+      border-radius: 99px;
+    }
+
+    /* ── Section ── */
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Form Fields ── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 8px 11px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: rgba(124, 58, 237, 0.6);
+      background: rgba(124, 58, 237, 0.07);
+    }
+
+    input::placeholder { color: #334155; }
+
+    /* ── Save Button ── */
+    .btn-save {
+      all: unset;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 20px;
+      width: 100%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+      letter-spacing: 0.01em;
+    }
+
+    .btn-save:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn-save:active { transform: scale(0.98); }
+
+    /* ── Custom Buttons Section ── */
+    .custom-btn-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .custom-btn-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 9px;
+      transition: border-color 0.15s;
+    }
+
+    .custom-btn-item:hover {
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+
+    .custom-btn-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .custom-btn-item-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .custom-btn-item-prompt {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-action-btn {
+      all: unset;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .item-action-btn.edit-btn:hover { background: rgba(124, 58, 237, 0.2); }
+    .item-action-btn.delete-btn:hover { background: rgba(239, 68, 68, 0.2); }
+
+    .empty-state {
+      text-align: center;
+      padding: 14px 0;
+      color: #334155;
+      font-size: 12px;
+    }
+
+    /* ── Add Custom Button Form ── */
+    .add-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: rgba(124, 58, 237, 0.06);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      border-radius: 10px;
+    }
+
+    .add-form textarea {
+      width: 100%;
+      padding: 8px 11px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 12.5px;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      min-height: 64px;
+      transition: border-color 0.15s;
+      line-height: 1.5;
+    }
+
+    .add-form textarea:focus {
+      border-color: rgba(124, 58, 237, 0.6);
+    }
+
+    .add-form textarea::placeholder { color: #334155; }
+
+    .add-form-row {
+      display: flex;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      all: unset;
+      padding: 7px 14px;
+      background: rgba(124, 58, 237, 0.8);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover { background: #7c3aed; transform: translateY(-1px); }
+
+    .btn-ghost {
+      all: unset;
+      padding: 7px 12px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .btn-ghost:hover { color: #fca5a5; background: rgba(239,68,68,0.1); }
+
+    .btn-add-new {
+      all: unset;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px;
+      color: #7c3aed;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: 1px dashed rgba(124, 58, 237, 0.35);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn-add-new:hover {
+      background: rgba(124, 58, 237, 0.08);
+      border-color: rgba(124, 58, 237, 0.6);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-note {
+      font-size: 10.5px;
+      color: #334155;
+    }
+
+    .footer-note a {
+      color: #7c3aed;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">✨</div>
+    <div class="header-text">
+      <h1>AI Proxy Translate</h1>
+      <p>Configure your AI endpoint &amp; custom actions</p>
+    </div>
+  </div>
+
+  <div id="status-banner"></div>
+
+  <div class="content">
+
+    <!-- API Settings -->
+    <div class="section">
+      <div class="section-title">🔌 API Configuration</div>
+
+      <div class="field">
+        <label for="api-url">API Base URL</label>
+        <input type="text" id="api-url"
+          placeholder="https://your-proxy.com/v1/chat/completions" />
+      </div>
+
+      <div class="field">
+        <label for="api-key">API Key</label>
+        <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="model-name">Model Name</label>
+        <input type="text" id="model-name" placeholder="gpt-4o-mini" />
+      </div>
+
+      <button class="btn-save" id="save-btn">
+        💾 Save API Settings
+      </button>
+    </div>
+
+    <!-- Custom Buttons -->
+    <div class="section">
+      <div class="section-title">🎛️ Custom Action Buttons</div>
+
+      <div class="custom-btn-list" id="custom-btn-list">
+        <div class="empty-state" id="empty-state">No custom buttons yet. Add one below!</div>
+      </div>
+
+      <!-- Add / Edit Form (hidden by default) -->
+      <div class="add-form" id="add-form" style="display:none;">
+        <div class="field">
+          <label for="form-btn-name">Button Name</label>
+          <input type="text" id="form-btn-name" placeholder='e.g. "Summarize"' maxlength="40" />
+        </div>
+        <div class="field">
+          <label for="form-btn-prompt">System Prompt</label>
+          <textarea id="form-btn-prompt"
+            placeholder='e.g. "Summarize this in 3 bullet points."'></textarea>
+        </div>
+        <div class="add-form-row">
+          <button class="btn-primary" id="form-save-btn">Save Button</button>
+          <button class="btn-ghost" id="form-cancel-btn">Cancel</button>
+        </div>
+      </div>
+
+      <button class="btn-add-new" id="add-new-btn">
+        ＋ Add Custom Button
+      </button>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span class="footer-note">v1.0.0 · Manifest V3</span>
+    <span class="footer-note">Made with ♥ for productivity</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
