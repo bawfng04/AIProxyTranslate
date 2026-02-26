@@ -470,3 +470,68 @@
 .ai-proxy-copy-btn:active {
     transform: scale(0.97);
 }
+
+/* ── Streaming cursor ─────────────────────────────────────────── */
+
+@keyframes ai-proxy-blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+.ai-proxy-streaming-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: #a78bfa;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    border-radius: 1px;
+    animation: ai-proxy-blink 0.65s step-end infinite;
+}
+
+/* ── Drag / Pin ───────────────────────────────────────────────── */
+
+/* Draggable header */
+.ai-proxy-modal-header--draggable {
+    cursor: grab;
+    user-select: none;
+}
+
+.ai-proxy-modal-header--dragging {
+    cursor: grabbing !important;
+}
+
+/* Pin button */
+.ai-proxy-pin-btn {
+    all: unset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.ai-proxy-pin-btn:hover {
+    opacity: 1;
+    background: rgba(139, 92, 246, 0.18);
+}
+
+/* Active = pinned */
+.ai-proxy-pin-btn--active {
+    opacity: 1;
+    background: rgba(139, 92, 246, 0.22);
+    filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.6));
+}

@@ -1,75 +1,45 @@
 /**
  * content.js — Content Script
- * Detects text selection and displays the AI floating action bar.
+ * Features: floating toolbar, streaming modal, drag/pin, context menu handler
  */
 
 (function () {
     'use strict';
 
-    // --- Constants ---
+    // ── Constants ──────────────────────────────────────────────────────────────
     const TOOLBAR_ID = 'ai-proxy-toolbar';
     const RESULT_MODAL_ID = 'ai-proxy-result-modal';
+
     const DEFAULT_BUTTONS = [
-        {
-            id: 'btn-translate-vi',
-            label: 'Translate',
-            systemPrompt:
-                'Dịch đoạn văn bản sau sang tiếng Việt tự nhiên, trôi chảy. Chỉ trả về bản dịch, không giải thích thêm.',
-        },
-        {
-            id: 'btn-explain',
-            label: 'Explain',
-            systemPrompt:
-                'Hãy giải thích ngữ cảnh, ý nghĩa và các khái niệm chính của đoạn văn bản sau một cách rõ ràng và súc tích. Trả lời hoàn toàn bằng tiếng Việt.',
-        },
-        {
-            id: 'btn-summarize',
-            label: 'TL;DR',
-            systemPrompt:
-                'Bạn là một trợ lý hiệu quả. Hãy tóm tắt đoạn văn bản sau thành 3-5 gạch đầu dòng súc tích. Chỉ giữ lại các luận điểm chính, loại bỏ phần không quan trọng. Trả lời hoàn toàn bằng tiếng Việt.',
-        },
-        {
-            id: 'btn-analyze-code',
-            label: 'Analyze Code',
-            systemPrompt:
-                'Bạn là một kỹ sư phần mềm chuyên nghiệp. Hãy phân tích đoạn code sau: giải thích logic ngắn gọn, đánh giá Độ phức tạp Thời gian và Không gian (Big O), và chỉ ra các lỗi tiềm ẩn, trường hợp biên, hoặc anti-pattern nếu có. Trả lời hoàn toàn bằng tiếng Việt.',
-        },
-        // {
-        //     id: 'btn-academic-explain',
-        //     label: 'Academic',
-        //     systemPrompt:
-        //         'Hãy đóng vai một giáo sư đại học. Giải thích đoạn văn học thuật, công thức, hoặc khái niệm học máy sau theo cách có cấu trúc. Phân tích các phần phức tạp và đưa ra ví dụ thực tế dễ hiểu. Trả lời hoàn toàn bằng tiếng Việt.',
-        // },
-        {
-            id: 'btn-fix-grammar',
-            label: 'Polish English',
-            systemPrompt:
-                'Hãy đóng vai một người viết kỹ thuật bản ngữ tiếng Anh. Sửa các lỗi ngữ pháp và chính tả trong đoạn văn sau, sau đó viết lại để nghe tự nhiên hơn, và thái độ sẽ phụ thuộc vào nội dung gốc, nếu nội dung gốc là tiêu cực thì thái độ sẽ là tiêu cực, nếu nội dung gốc là tích cực thì thái độ sẽ là tích cực, nếu nội dung gốc là trung lập thì thái độ sẽ là trung lập.',
-        }
+        { id: 'btn-translate-vi', label: 'Translate', systemPrompt: 'Dịch đoạn văn bản sau sang tiếng Việt tự nhiên, trôi chảy. Chỉ trả về bản dịch, không giải thích thêm.' },
+        { id: 'btn-explain', label: 'Explain', systemPrompt: 'Hãy giải thích ngữ cảnh, ý nghĩa và các khái niệm chính của đoạn văn bản sau một cách rõ ràng và súc tích. Trả lời hoàn toàn bằng tiếng Việt.' },
+        { id: 'btn-summarize', label: 'TL;DR', systemPrompt: 'Bạn là một trợ lý hiệu quả. Hãy tóm tắt đoạn văn bản sau thành 3-5 gạch đầu dòng súc tích. Chỉ giữ lại các luận điểm chính, loại bỏ phần không quan trọng. Trả lời hoàn toàn bằng tiếng Việt.' },
+        { id: 'btn-analyze-code', label: 'Analyze Code', systemPrompt: 'Bạn là một kỹ sư phần mềm chuyên nghiệp. Hãy phân tích đoạn code sau: giải thích logic ngắn gọn, đánh giá Độ phức tạp Thời gian và Không gian (Big O), và chỉ ra các lỗi tiềm ẩn, trường hợp biên, hoặc anti-pattern nếu có. Trả lời hoàn toàn bằng tiếng Việt.' },
+        { id: 'btn-fix-grammar', label: 'Polish English', systemPrompt: 'Hãy đóng vai một người viết kỹ thuật bản ngữ tiếng Anh. Sửa các lỗi ngữ pháp và chính tả trong đoạn văn sau, sau đó viết lại để nghe tự nhiên hơn, và thái độ sẽ phụ thuộc vào nội dung gốc, nếu nội dung gốc là tiêu cực thì thái độ sẽ là tiêu cực, nếu nội dung gốc là tích cực thì thái độ sẽ là tích cực, nếu nội dung gốc là trung lập thì thái độ sẽ là trung lập.' },
     ];
 
-    // --- State ---
+    // ── State ──────────────────────────────────────────────────────────────────
     let toolbar = null;
     let resultModal = null;
     let lastSelection = null;
-    let lastRange = null;
 
-    // --- Initialization ---
+    // Streaming state
+    let isStreaming = false;
+    let streamAnchorEl = null;
+
+    // Drag/pin state
+    let modalIsPinned = false;
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    // ── Init ───────────────────────────────────────────────────────────────────
     init();
 
-    // ── Context-validity guard ──────────────────────────────────
-    // When the extension is reloaded while a tab is open, the old
-    // content script's chrome.* connection is severed.  Any further
-    // chrome API call throws "Extension context invalidated".
-    // We detect this early and cleanly remove ourselves.
-
+    // ── Context-validity guard ─────────────────────────────────────────────────
     function isContextValid() {
-        try {
-            // chrome.runtime.id is undefined once the context is gone
-            return !!(chrome && chrome.runtime && chrome.runtime.id);
-        } catch (_) {
-            return false;
-        }
+        try { return !!(chrome && chrome.runtime && chrome.runtime.id); }
+        catch (_) { return false; }
     }
 
     function selfDestruct() {
@@ -77,6 +47,8 @@
         try { if (resultModal) resultModal.remove(); } catch (_) { }
         document.removeEventListener('mouseup', onMouseUp);
         document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
     }
 
     function init() {
@@ -84,16 +56,36 @@
         injectResultModal();
         document.addEventListener('mouseup', onMouseUp);
         document.addEventListener('keydown', onKeyDown);
+        listenForBackgroundMessages();
     }
 
     function onKeyDown(e) {
         if (e.key === 'Escape') hideAll();
     }
 
-    // --------------------------------------------------------------------------
-    // Toolbar
-    // --------------------------------------------------------------------------
+    // ── Background message listener ────────────────────────────────────────────
+    function listenForBackgroundMessages() {
+        chrome.runtime.onMessage.addListener((message) => {
+            if (!message?.action) return;
 
+            switch (message.action) {
+                case 'STREAM_CHUNK':
+                    onStreamChunk(message.text);
+                    break;
+                case 'STREAM_DONE':
+                    onStreamDone(message.text);
+                    break;
+                case 'STREAM_ERROR':
+                    onStreamError(message.error);
+                    break;
+                case 'CONTEXT_MENU_ACTION':
+                    handleContextMenuAction(message.systemPrompt, message.selectedText);
+                    break;
+            }
+        });
+    }
+
+    // ── Toolbar ────────────────────────────────────────────────────────────────
     function injectToolbar() {
         if (document.getElementById(TOOLBAR_ID)) return;
         toolbar = document.createElement('div');
@@ -106,7 +98,6 @@
 
     function renderToolbarButtons(customButtons) {
         toolbar.innerHTML = '';
-
         const allButtons = [...DEFAULT_BUTTONS, ...customButtons];
 
         allButtons.forEach((btn) => {
@@ -121,37 +112,26 @@
             toolbar.appendChild(button);
         });
 
-        // Add a close/dismiss button
         const closeBtn = document.createElement('button');
         closeBtn.className = 'ai-proxy-btn ai-proxy-btn--close';
         closeBtn.innerHTML = '&times;';
         closeBtn.title = 'Dismiss';
-        closeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            hideAll();
-        });
+        closeBtn.addEventListener('click', (e) => { e.stopPropagation(); hideAll(); });
         toolbar.appendChild(closeBtn);
     }
 
     function showToolbar(x, y) {
         if (!toolbar) return;
         toolbar.style.display = 'flex';
-
-        // Position: anchor to cursor, keep within viewport
         const OFFSET = 10;
         const tbWidth = toolbar.offsetWidth;
         const tbHeight = toolbar.offsetHeight;
         const vpWidth = window.innerWidth;
-        const vpHeight = window.innerHeight;
 
         let left = x - tbWidth / 2;
         let top = y - tbHeight - OFFSET;
-
-        // Horizontal clamp
         if (left < 8) left = 8;
         if (left + tbWidth > vpWidth - 8) left = vpWidth - tbWidth - 8;
-
-        // Flip below if no room above
         if (top < 8) top = y + OFFSET;
 
         toolbar.style.left = `${left + window.scrollX}px`;
@@ -162,10 +142,7 @@
         if (toolbar) toolbar.style.display = 'none';
     }
 
-    // --------------------------------------------------------------------------
-    // Result Modal
-    // --------------------------------------------------------------------------
-
+    // ── Result Modal ───────────────────────────────────────────────────────────
     function injectResultModal() {
         if (document.getElementById(RESULT_MODAL_ID)) return;
         resultModal = document.createElement('div');
@@ -174,101 +151,195 @@
         resultModal.setAttribute('aria-modal', 'true');
         resultModal.style.display = 'none';
 
-        // Prevent wheel events from bubbling to the page while the modal is open
+        // Prevent wheel scroll from propagating to page
         resultModal.addEventListener('wheel', (e) => {
-            const body = resultModal.querySelector('.ai-proxy-modal-body');
-            if (!body) return;
             e.stopPropagation();
         }, { passive: true });
 
         document.body.appendChild(resultModal);
     }
 
-    function showResultModal(anchorEl, content, isError = false) {
+    /**
+     * Open (or reset) the result modal.
+     * @param {Element|null} anchorEl — element to position near
+     * @param {string}       text     — initial content (empty for streaming)
+     * @param {boolean}      isError
+     * @param {boolean}      streaming — if true, show blinking cursor, no copy button yet
+     */
+    function showResultModal(anchorEl, text, isError, streaming) {
         resultModal.innerHTML = '';
+        isStreaming = !!streaming;
 
-        // Header row
+        // ── Header ──
         const header = document.createElement('div');
         header.className = 'ai-proxy-modal-header';
 
         const title = document.createElement('span');
         title.className = 'ai-proxy-modal-title';
-        title.textContent = isError ? 'Error' : 'Result - bawfng04 Cloudflare Proxy API';
+        title.textContent = isError ? 'ERROR' : 'RESULT — bawfng04 Cloudflare Proxy API';
         header.appendChild(title);
 
+        // Pin button
+        const pinBtn = document.createElement('button');
+        pinBtn.className = 'ai-proxy-pin-btn';
+        pinBtn.title = 'Pin / unpin position';
+        pinBtn.innerHTML = '📌';
+        pinBtn.addEventListener('click', () => {
+            modalIsPinned = !modalIsPinned;
+            pinBtn.classList.toggle('ai-proxy-pin-btn--active', modalIsPinned);
+        });
+        header.appendChild(pinBtn);
+
+        // Close button
         const closeBtn = document.createElement('button');
         closeBtn.className = 'ai-proxy-modal-close';
         closeBtn.innerHTML = '&times;';
         closeBtn.title = 'Close';
         closeBtn.addEventListener('click', hideResultModal);
         header.appendChild(closeBtn);
+
         resultModal.appendChild(header);
 
-        // Content area
+        // ── Body ──
         const body = document.createElement('div');
         body.className = `ai-proxy-modal-body${isError ? ' ai-proxy-modal-body--error' : ''}`;
-
-        // Render with basic markdown-like newline support
-        body.innerHTML = formatContent(content);
+        if (streaming) {
+            body.innerHTML = '<span class="ai-proxy-streaming-cursor"></span>';
+        } else {
+            body.innerHTML = formatContent(text);
+        }
         resultModal.appendChild(body);
 
-        // Copy button (only for success)
-        if (!isError) {
-            const footer = document.createElement('div');
-            footer.className = 'ai-proxy-modal-footer';
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'ai-proxy-copy-btn';
-            copyBtn.textContent = '📋 Copy';
-            copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(content).then(() => {
-                    copyBtn.textContent = '✅ Copied!';
-                    setTimeout(() => (copyBtn.textContent = '📋 Copy'), 2000);
-                });
-            });
-            footer.appendChild(copyBtn);
-            resultModal.appendChild(footer);
+        // ── Footer (copy button — added after stream completes) ──
+        if (!streaming && !isError) {
+            resultModal.appendChild(buildFooter(text));
         }
 
-        resultModal.style.display = 'flex'; /* must be flex for column height constraint */
+        // Show
+        resultModal.style.display = 'flex';
 
-        // Position below the anchor element (button that was clicked)
-        positionModalNearAnchor(anchorEl);
+        // Position (skip if user has pinned the modal)
+        if (!modalIsPinned) {
+            streamAnchorEl = anchorEl;
+            positionModalNearAnchor(anchorEl);
+        }
+
+        // Set up drag on header
+        initDrag(header);
     }
 
+    function buildFooter(text) {
+        const footer = document.createElement('div');
+        footer.className = 'ai-proxy-modal-footer';
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'ai-proxy-copy-btn';
+        copyBtn.textContent = '📋 Copy';
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(text).then(() => {
+                copyBtn.textContent = '✅ Copied!';
+                setTimeout(() => (copyBtn.textContent = '📋 Copy'), 2000);
+            });
+        });
+        footer.appendChild(copyBtn);
+        return footer;
+    }
+
+    // ── Streaming updates ──────────────────────────────────────────────────────
+
+    function onStreamChunk(accumulatedText) {
+        if (!resultModal || resultModal.style.display === 'none') return;
+        const body = resultModal.querySelector('.ai-proxy-modal-body');
+        if (!body) return;
+        body.innerHTML = formatContent(accumulatedText) +
+            '<span class="ai-proxy-streaming-cursor"></span>';
+    }
+
+    function onStreamDone(finalText) {
+        isStreaming = false;
+        restoreActionButtons();
+
+        if (!resultModal || resultModal.style.display === 'none') return;
+        const body = resultModal.querySelector('.ai-proxy-modal-body');
+        if (body) body.innerHTML = formatContent(finalText);
+
+        // Add copy footer if not already there
+        if (!resultModal.querySelector('.ai-proxy-modal-footer')) {
+            resultModal.appendChild(buildFooter(finalText));
+        }
+    }
+
+    function onStreamError(errorText) {
+        isStreaming = false;
+        restoreActionButtons();
+
+        if (!resultModal || resultModal.style.display === 'none') return;
+        const body = resultModal.querySelector('.ai-proxy-modal-body');
+        if (body) {
+            body.classList.add('ai-proxy-modal-body--error');
+            body.innerHTML = formatContent(errorText || 'Unknown error.');
+        }
+        const title = resultModal.querySelector('.ai-proxy-modal-title');
+        if (title) title.textContent = 'ERROR';
+    }
+
+    // ── Action button loading state ────────────────────────────────────────────
+    let _loadingBtn = null;
+    let _loadingOriginalText = '';
+
+    function setLoadingState(buttonEl) {
+        _loadingBtn = buttonEl;
+        _loadingOriginalText = buttonEl.textContent;
+        const allBtns = toolbar.querySelectorAll('.ai-proxy-btn');
+        allBtns.forEach((b) => (b.disabled = true));
+        buttonEl.innerHTML = '<span class="ai-proxy-spinner"></span> Processing…';
+        buttonEl.classList.add('ai-proxy-btn--loading');
+    }
+
+    function restoreActionButtons() {
+        if (!toolbar) return;
+        const allBtns = toolbar.querySelectorAll('.ai-proxy-btn');
+        allBtns.forEach((b) => (b.disabled = false));
+        if (_loadingBtn) {
+            _loadingBtn.textContent = _loadingOriginalText;
+            _loadingBtn.classList.remove('ai-proxy-btn--loading');
+            _loadingBtn = null;
+        }
+    }
+
+    // ── Modal positioning ──────────────────────────────────────────────────────
     function positionModalNearAnchor(anchorEl) {
         const rect = anchorEl
             ? anchorEl.getBoundingClientRect()
-            : { left: window.innerWidth / 2, bottom: window.innerHeight / 2, top: window.innerHeight / 2, width: 0 };
+            : { left: window.innerWidth / 2, bottom: window.innerHeight * 0.3, top: window.innerHeight * 0.3, width: 0 };
 
         const OFFSET = 8;
         const MARGIN = 10;
-        const modalWidth = resultModal.offsetWidth || 420;
-        const modalHeight = resultModal.offsetHeight || 300;
+        const modalW = resultModal.offsetWidth || 440;
+        const modalH = resultModal.offsetHeight || 300;
         const vpWidth = window.innerWidth;
         const vpHeight = window.innerHeight;
 
-        // Horizontal: centre under the anchor, then clamp inside viewport
-        let left = rect.left + (rect.width || 0) / 2 - modalWidth / 2;
-        left = Math.max(MARGIN, Math.min(left, vpWidth - modalWidth - MARGIN));
+        let left = rect.left + (rect.width || 0) / 2 - modalW / 2;
+        left = Math.max(MARGIN, Math.min(left, vpWidth - modalW - MARGIN));
 
-        // Vertical: prefer below the toolbar, flip above if not enough room
         let top;
         const spaceBelow = vpHeight - rect.bottom;
         const spaceAbove = rect.top;
-        if (spaceBelow >= modalHeight + OFFSET || spaceBelow >= spaceAbove) {
+        if (spaceBelow >= modalH + OFFSET || spaceBelow >= spaceAbove) {
             top = rect.bottom + OFFSET;
         } else {
-            top = rect.top - modalHeight - OFFSET;
+            top = rect.top - modalH - OFFSET;
         }
         top = Math.max(MARGIN, top);
 
-        // position:fixed uses viewport coords — no scroll offset needed
         resultModal.style.left = `${left}px`;
         resultModal.style.top = `${top}px`;
     }
 
     function hideResultModal() {
         if (resultModal) resultModal.style.display = 'none';
+        modalIsPinned = false; // reset pin on close
+        isStreaming = false;
     }
 
     function hideAll() {
@@ -276,39 +347,79 @@
         hideResultModal();
     }
 
-    // --------------------------------------------------------------------------
-    // Event Handlers
-    // --------------------------------------------------------------------------
+    // ── Drag / Pin ─────────────────────────────────────────────────────────────
+    function initDrag(headerEl) {
+        headerEl.classList.add('ai-proxy-modal-header--draggable');
 
+        headerEl.addEventListener('mousedown', (e) => {
+            // Don't start drag on buttons inside header
+            if (e.target.closest('button')) return;
+            e.preventDefault();
+
+            isDragging = true;
+            const rect = resultModal.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            headerEl.classList.add('ai-proxy-modal-header--dragging');
+
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+        });
+    }
+
+    function onDragMove(e) {
+        if (!isDragging) return;
+        const MARGIN = 8;
+        const vpW = window.innerWidth;
+        const vpH = window.innerHeight;
+        const modalW = resultModal.offsetWidth;
+        const modalH = resultModal.offsetHeight;
+
+        let left = e.clientX - dragOffsetX;
+        let top = e.clientY - dragOffsetY;
+
+        left = Math.max(MARGIN, Math.min(left, vpW - modalW - MARGIN));
+        top = Math.max(MARGIN, Math.min(top, vpH - modalH - MARGIN));
+
+        resultModal.style.left = `${left}px`;
+        resultModal.style.top = `${top}px`;
+    }
+
+    function onDragEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        modalIsPinned = true; // auto-pin after dragging
+
+        // Update pin button visual
+        const pinBtn = resultModal.querySelector('.ai-proxy-pin-btn');
+        if (pinBtn) pinBtn.classList.add('ai-proxy-pin-btn--active');
+
+        const header = resultModal.querySelector('.ai-proxy-modal-header');
+        if (header) header.classList.remove('ai-proxy-modal-header--dragging');
+
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+    }
+
+    // ── Event handlers ─────────────────────────────────────────────────────────
     function onMouseUp(e) {
-        // Ignore clicks inside our own UI
         if (
             (toolbar && toolbar.contains(e.target)) ||
             (resultModal && resultModal.contains(e.target))
-        ) {
-            return;
-        }
+        ) return;
 
         setTimeout(() => {
             const selection = window.getSelection();
-            const selectedText = selection ? selection.toString().trim() : '';
+            const selectedText = selection?.toString().trim() ?? '';
 
-            if (!selectedText) {
-                hideAll();
-                return;
-            }
+            if (!selectedText) { hideAll(); return; }
 
             lastSelection = selectedText;
 
-            // Store the range for potential repositioning
-            if (selection && selection.rangeCount > 0) {
-                lastRange = selection.getRangeAt(0);
-            }
-
-            // Load custom buttons then show toolbar
             if (!isContextValid()) { selfDestruct(); return; }
+
             chrome.storage.sync.get(['customButtons'], (result) => {
-                if (chrome.runtime.lastError) return; // context gone mid-call
+                if (chrome.runtime.lastError) return;
                 const customButtons = (result.customButtons || []).map((cb) => ({
                     id: `custom-${cb.id}`,
                     label: cb.name,
@@ -320,102 +431,82 @@
         }, 10);
     }
 
-    // --------------------------------------------------------------------------
-    // AI Request
-    // --------------------------------------------------------------------------
-
+    // ── AI request (streaming) ─────────────────────────────────────────────────
     function handleButtonClick(systemPrompt, buttonEl) {
         if (!lastSelection) return;
+        setLoadingState(buttonEl);
+        showResultModal(buttonEl, '', false, true); // streaming mode
 
-        // Show loading state on clicked button
-        const allBtns = toolbar.querySelectorAll('.ai-proxy-btn');
-        allBtns.forEach((b) => (b.disabled = true));
-        const originalText = buttonEl.textContent;
-        buttonEl.innerHTML = '<span class="ai-proxy-spinner"></span> Processing…';
-        buttonEl.classList.add('ai-proxy-btn--loading');
-
-        // Hide any previous result
-        hideResultModal();
-
-        if (!isContextValid()) {
-            selfDestruct();
-            return;
-        }
+        if (!isContextValid()) { selfDestruct(); return; }
 
         chrome.runtime.sendMessage(
-            {
-                action: 'AI_REQUEST',
-                systemPrompt: systemPrompt,
-                userText: lastSelection,
-            },
-            (response) => {
-                // Restore button state
-                allBtns.forEach((b) => (b.disabled = false));
-                buttonEl.textContent = originalText;
-                buttonEl.classList.remove('ai-proxy-btn--loading');
-
-                if (chrome.runtime.lastError) {
-                    showResultModal(
-                        buttonEl,
-                        `Extension error: ${chrome.runtime.lastError.message}`,
-                        true
+            { action: 'AI_STREAM_REQUEST', systemPrompt, userText: lastSelection },
+            (ack) => {
+                if (chrome.runtime.lastError || !ack?.streaming) {
+                    // Fallback: regular request
+                    chrome.runtime.sendMessage(
+                        { action: 'AI_REQUEST', systemPrompt, userText: lastSelection },
+                        (resp) => {
+                            restoreActionButtons();
+                            if (!resp || !resp.success) {
+                                onStreamError(resp?.error || 'Unknown error.');
+                            } else {
+                                onStreamDone(resp.content);
+                            }
+                        }
                     );
-                    return;
                 }
+                // If streaming ack OK, wait for STREAM_CHUNK / STREAM_DONE messages
+            }
+        );
+    }
 
-                if (!response) {
-                    showResultModal(buttonEl, 'No response received from the extension.', true);
-                    return;
-                }
+    // ── Context menu action ────────────────────────────────────────────────────
+    function handleContextMenuAction(systemPrompt, selectedText) {
+        lastSelection = selectedText;
+        hideAll();
 
-                if (response.success) {
-                    showResultModal(buttonEl, response.content, false);
-                } else {
-                    showResultModal(buttonEl, response.error || 'Unknown error occurred.', true);
+        showResultModal(null, '', false, true); // centre of screen, streaming
+
+        if (!isContextValid()) { selfDestruct(); return; }
+
+        chrome.runtime.sendMessage(
+            { action: 'AI_STREAM_REQUEST', systemPrompt, userText: selectedText },
+            (ack) => {
+                if (chrome.runtime.lastError || !ack?.streaming) {
+                    chrome.runtime.sendMessage(
+                        { action: 'AI_REQUEST', systemPrompt, userText: selectedText },
+                        (resp) => {
+                            if (!resp || !resp.success) onStreamError(resp?.error || 'Error.');
+                            else onStreamDone(resp.content);
+                        }
+                    );
                 }
             }
         );
     }
 
-    // --------------------------------------------------------------------------
-    // Utilities
-    // --------------------------------------------------------------------------
-
+    // ── Markdown formatter ─────────────────────────────────────────────────────
     function formatContent(text) {
-        // 1. HTML-escape everything first
         const escaped = text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
 
-        // 2. Bold: **text**
         const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-        // 3. Process line by line
         const lines = withBold.split('\n');
-        const rendered = lines
-            .map((line) => {
-                const trimmed = line.trim();
-                // Headings: ### ## #
-                if (/^###\s+/.test(trimmed)) {
-                    return `<h3>${trimmed.replace(/^###\s+/, '')}</h3>`;
-                }
-                if (/^##\s+/.test(trimmed)) {
-                    return `<h2>${trimmed.replace(/^##\s+/, '')}</h2>`;
-                }
-                if (/^#\s+/.test(trimmed)) {
-                    return `<h2>${trimmed.replace(/^#\s+/, '')}</h2>`;
-                }
-                // Bullet points: - • *
-                if (/^[-•*]\s/.test(trimmed)) {
-                    return `<li>${trimmed.slice(2)}</li>`;
-                }
-                return trimmed ? `<p>${trimmed}</p>` : '';
-            })
-            .join('');
+        const rendered = lines.map((line) => {
+            const t = line.trim();
+            if (/^###\s+/.test(t)) return `<h3>${t.replace(/^###\s+/, '')}</h3>`;
+            if (/^##\s+/.test(t)) return `<h2>${t.replace(/^##\s+/, '')}</h2>`;
+            if (/^#\s+/.test(t)) return `<h2>${t.replace(/^#\s+/, '')}</h2>`;
+            if (/^[-•*]\s/.test(t)) return `<li>${t.slice(2)}</li>`;
+            return t ? `<p>${t}</p>` : '';
+        }).join('');
 
-        // 4. Wrap consecutive <li> in <ul>
-        return rendered.replace(/(<li>.*?<\/li>)+/gs, (match) => `<ul>${match}</ul>`);
+        return rendered.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
     }
+
 })();
