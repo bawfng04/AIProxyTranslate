@@ -615,3 +615,75 @@
     line-height: 1.55;
     color: #e2e8f0;
 }
+/* ── Follow-up input bar ──────────────────────────────────────── */
+
+.ai-proxy-followup-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-proxy-followup-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 0.82em;
+    padding: 5px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+.ai-proxy-followup-input::placeholder { color: rgba(255,255,255,0.35); }
+.ai-proxy-followup-input:focus { border-color: rgba(139, 92, 246, 0.55); }
+
+.ai-proxy-followup-send {
+    background: rgba(139, 92, 246, 0.25);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    border-radius: 7px;
+    color: #c4b5fd;
+    font-size: 1em;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    flex-shrink: 0;
+}
+.ai-proxy-followup-send:hover  { background: rgba(139, 92, 246, 0.45); }
+.ai-proxy-followup-send:active { transform: scale(0.92); }
+
+/* ── Chat bubbles (follow-up Q&A) ────────────────────────────── */
+
+.ai-proxy-chat-user {
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.28);
+    border-radius: 8px 8px 2px 8px;
+    padding: 7px 11px;
+    margin-top: 12px;
+    font-size: 0.87em;
+    color: #ddd6fe;
+    word-break: break-word;
+}
+
+.ai-proxy-chat-label {
+    display: block;
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #a78bfa;
+    margin-bottom: 3px;
+}
+
+.ai-proxy-chat-ai {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 4px;
+    padding-top: 8px;
+}

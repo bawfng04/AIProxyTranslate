@@ -23,9 +23,14 @@
     let resultModal = null;
     let lastSelection = null;
 
+    // Conversation history for follow-up questions
+    // Each entry: { role: 'system'|'user'|'assistant', content: string }
+    let conversationHistory = [];
+
     // Streaming state
     let isStreaming = false;
     let streamAnchorEl = null;
+    let activeStreamBlock = null; // the <div> currently receiving streamed tokens
 
     // Drag/pin state
     let modalIsPinned = false;
@@ -205,6 +210,7 @@
         body.className = `ai-proxy-modal-body${isError ? ' ai-proxy-modal-body--error' : ''}`;
         if (streaming) {
             body.innerHTML = '<span class="ai-proxy-streaming-cursor"></span>';
+            activeStreamBlock = body; // first turn targets the body itself
         } else {
             body.innerHTML = formatContent(text);
         }
@@ -231,19 +237,49 @@
         initDrag(header);
     }
 
-    function buildFooter(text) {
+    function buildFooter(lastResponseText) {
         const footer = document.createElement('div');
         footer.className = 'ai-proxy-modal-footer';
+
         const copyBtn = document.createElement('button');
         copyBtn.className = 'ai-proxy-copy-btn';
         copyBtn.textContent = '📋 Copy';
         copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(text).then(() => {
+            navigator.clipboard.writeText(lastResponseText).then(() => {
                 copyBtn.textContent = '✅ Copied!';
                 setTimeout(() => (copyBtn.textContent = '📋 Copy'), 2000);
             });
         });
+
+        // Follow-up input
+        const inputWrap = document.createElement('div');
+        inputWrap.className = 'ai-proxy-followup-wrap';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ai-proxy-followup-input';
+        input.placeholder = 'Ask a follow-up…';
+        input.setAttribute('aria-label', 'Follow-up question');
+
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'ai-proxy-followup-send';
+        sendBtn.textContent = '↩';
+        sendBtn.title = 'Send follow-up';
+
+        const submitFollowUp = () => {
+            const q = input.value.trim();
+            if (!q || isStreaming) return;
+            input.value = '';
+            handleFollowUp(q);
+        };
+
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitFollowUp(); });
+        sendBtn.addEventListener('click', submitFollowUp);
+
+        inputWrap.appendChild(input);
+        inputWrap.appendChild(sendBtn);
         footer.appendChild(copyBtn);
+        footer.appendChild(inputWrap);
         return footer;
     }
 
@@ -251,10 +287,11 @@
 
     function onStreamChunk(accumulatedText) {
         if (!resultModal || resultModal.style.display === 'none') return;
-        const body = resultModal.querySelector('.ai-proxy-modal-body');
-        if (!body) return;
-        body.innerHTML = formatContent(accumulatedText) +
-            '<span class="ai-proxy-streaming-cursor"></span>';
+        // activeStreamBlock points to the <div> for the current AI turn
+        if (activeStreamBlock) {
+            activeStreamBlock.innerHTML = formatContent(accumulatedText) +
+                '<span class="ai-proxy-streaming-cursor"></span>';
+        }
     }
 
     function onStreamDone(finalText) {
@@ -262,24 +299,34 @@
         restoreActionButtons();
 
         if (!resultModal || resultModal.style.display === 'none') return;
-        const body = resultModal.querySelector('.ai-proxy-modal-body');
-        if (body) body.innerHTML = formatContent(finalText);
 
-        // Add copy footer if not already there
-        if (!resultModal.querySelector('.ai-proxy-modal-footer')) {
-            resultModal.appendChild(buildFooter(finalText));
+        // Finalise the active stream block
+        if (activeStreamBlock) {
+            activeStreamBlock.innerHTML = formatContent(finalText);
+            activeStreamBlock = null;
         }
+
+        // Record assistant turn in history
+        conversationHistory.push({ role: 'assistant', content: finalText });
+
+        // Add / update footer with follow-up input
+        const existingFooter = resultModal.querySelector('.ai-proxy-modal-footer');
+        if (existingFooter) existingFooter.remove();
+        resultModal.appendChild(buildFooter(finalText));
+
+        // Focus follow-up input
+        const followInput = resultModal.querySelector('.ai-proxy-followup-input');
+        if (followInput) setTimeout(() => followInput.focus(), 80);
     }
 
     function onStreamError(errorText) {
         isStreaming = false;
         restoreActionButtons();
-
         if (!resultModal || resultModal.style.display === 'none') return;
-        const body = resultModal.querySelector('.ai-proxy-modal-body');
-        if (body) {
-            body.classList.add('ai-proxy-modal-body--error');
-            body.innerHTML = formatContent(errorText || 'Unknown error.');
+        if (activeStreamBlock) {
+            activeStreamBlock.classList.add('ai-proxy-modal-body--error');
+            activeStreamBlock.innerHTML = formatContent(errorText || 'Unknown error.');
+            activeStreamBlock = null;
         }
         const title = resultModal.querySelector('.ai-proxy-modal-title');
         if (title) title.textContent = 'ERROR';
@@ -438,29 +485,74 @@
     // ── AI request (streaming) ─────────────────────────────────────────────────
     function handleButtonClick(systemPrompt, buttonEl) {
         if (!lastSelection) return;
+
+        // Reset conversation for new selection
+        conversationHistory = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: lastSelection },
+        ];
+
         setLoadingState(buttonEl);
         showResultModal(buttonEl, '', false, true); // streaming mode
-
         if (!isContextValid()) { selfDestruct(); return; }
 
+        sendStreamRequest(conversationHistory, buttonEl);
+    }
+
+    // ── Follow-up handler ──────────────────────────────────────────────────────
+    function handleFollowUp(question) {
+        if (!resultModal || isStreaming) return;
+        if (!isContextValid()) { selfDestruct(); return; }
+
+        // Append user question block to modal body
+        const body = resultModal.querySelector('.ai-proxy-modal-body');
+        if (!body) return;
+
+        // Remove old footer while streaming
+        const footer = resultModal.querySelector('.ai-proxy-modal-footer');
+        if (footer) footer.remove();
+
+        // User bubble
+        const userBlock = document.createElement('div');
+        userBlock.className = 'ai-proxy-chat-user';
+        userBlock.innerHTML = `<span class="ai-proxy-chat-label">You</span>${escapeHtmlInline(question)}`;
+        body.appendChild(userBlock);
+
+        // AI streaming block (empty, fills on STREAM_CHUNK)
+        const aiBlock = document.createElement('div');
+        aiBlock.className = 'ai-proxy-chat-ai';
+        aiBlock.innerHTML = '<span class="ai-proxy-streaming-cursor"></span>';
+        body.appendChild(aiBlock);
+        activeStreamBlock = aiBlock;
+
+        // Scroll to bottom
+        body.scrollTop = body.scrollHeight;
+
+        // Record user turn and send
+        conversationHistory.push({ role: 'user', content: question });
+        isStreaming = true;
+        sendStreamRequest(conversationHistory, null);
+    }
+
+    function escapeHtmlInline(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function sendStreamRequest(messages, loadingBtn) {
         chrome.runtime.sendMessage(
-            { action: 'AI_STREAM_REQUEST', systemPrompt, userText: lastSelection },
+            { action: 'AI_STREAM_REQUEST', messages },
             (ack) => {
                 if (chrome.runtime.lastError || !ack?.streaming) {
                     // Fallback: regular request
                     chrome.runtime.sendMessage(
-                        { action: 'AI_REQUEST', systemPrompt, userText: lastSelection },
+                        { action: 'AI_REQUEST', messages },
                         (resp) => {
                             restoreActionButtons();
-                            if (!resp || !resp.success) {
-                                onStreamError(resp?.error || 'Unknown error.');
-                            } else {
-                                onStreamDone(resp.content);
-                            }
+                            if (!resp || !resp.success) onStreamError(resp?.error || 'Unknown error.');
+                            else onStreamDone(resp.content);
                         }
                     );
                 }
-                // If streaming ack OK, wait for STREAM_CHUNK / STREAM_DONE messages
             }
         );
     }
@@ -468,26 +560,14 @@
     // ── Context menu action ────────────────────────────────────────────────────
     function handleContextMenuAction(systemPrompt, selectedText) {
         lastSelection = selectedText;
+        conversationHistory = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: selectedText },
+        ];
         hideAll();
-
-        showResultModal(null, '', false, true); // centre of screen, streaming
-
+        showResultModal(null, '', false, true);
         if (!isContextValid()) { selfDestruct(); return; }
-
-        chrome.runtime.sendMessage(
-            { action: 'AI_STREAM_REQUEST', systemPrompt, userText: selectedText },
-            (ack) => {
-                if (chrome.runtime.lastError || !ack?.streaming) {
-                    chrome.runtime.sendMessage(
-                        { action: 'AI_REQUEST', systemPrompt, userText: selectedText },
-                        (resp) => {
-                            if (!resp || !resp.success) onStreamError(resp?.error || 'Error.');
-                            else onStreamDone(resp.content);
-                        }
-                    );
-                }
-            }
-        );
+        sendStreamRequest(conversationHistory, null);
     }
 
     // ── LaTeX → Unicode converter ──────────────────────────────────────────────

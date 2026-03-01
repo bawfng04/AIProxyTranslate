@@ -113,7 +113,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Regular (non-streaming) request — used as fallback
     if (message.action === 'AI_REQUEST') {
-        fetchRegular(message.systemPrompt, message.userText)
+        fetchRegular(message.systemPrompt, message.userText, message.messages)
             .then(sendResponse)
             .catch((err) => sendResponse({ success: false, error: err.message }));
         return true; // async
@@ -127,7 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return false;
         }
         sendResponse({ success: true, streaming: true }); // ack
-        handleStreaming(message.systemPrompt, message.userText, tabId);
+        handleStreaming(message.systemPrompt, message.userText, tabId, message.messages);
         return false;
     }
 
@@ -136,33 +136,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ── Regular fetch ─────────────────────────────────────────────────────────────
 
-async function fetchRegular(systemPrompt, userText) {
+async function fetchRegular(systemPrompt, userText, messages) {
     const { API_BASE_URL, API_KEY, MODEL_NAME } = await loadSettings();
-
-    validateSettings(API_KEY, API_BASE_URL); // throws on empty
-
-    const response = await apiFetch(API_BASE_URL, API_KEY, MODEL_NAME, systemPrompt, userText, false);
-
+    validateSettings(API_KEY, API_BASE_URL);
+    const response = await apiFetch(API_BASE_URL, API_KEY, MODEL_NAME, false,
+        messages || buildMessages(systemPrompt, userText));
     if (!response.ok) {
         const detail = await extractErrorDetail(response);
         throw new Error(`API Error (${response.status}): ${detail}`);
     }
-
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content;
     if (typeof content !== 'string') throw new Error('Unexpected API response format.');
-
-    await saveHistory(userText, content);
+    await saveHistory(userText || '', content);
     return { success: true, content };
 }
 
 // ── Streaming fetch ───────────────────────────────────────────────────────────
 
-async function handleStreaming(systemPrompt, userText, tabId) {
+async function handleStreaming(systemPrompt, userText, tabId, messages) {
     const sendChunk = (text) => sendToTab(tabId, { action: 'STREAM_CHUNK', text });
     const sendDone = (text) => sendToTab(tabId, { action: 'STREAM_DONE', text });
     const sendError = (err) => sendToTab(tabId, { action: 'STREAM_ERROR', error: err });
 
+    const msgs = messages || buildMessages(systemPrompt, userText);
     let settings;
     try { settings = await loadSettings(); } catch (e) { sendError(e.message); return; }
 
@@ -173,11 +170,11 @@ async function handleStreaming(systemPrompt, userText, tabId) {
 
     let response;
     try {
-        response = await apiFetch(API_BASE_URL, API_KEY, MODEL_NAME, systemPrompt, userText, true);
+        response = await apiFetch(API_BASE_URL, API_KEY, MODEL_NAME, true, msgs);
     } catch (netErr) {
         // Network failure — fall back to regular
         try {
-            const result = await fetchRegular(systemPrompt, userText);
+            const result = await fetchRegular(systemPrompt, userText, messages);
             sendDone(result.content);
         } catch (e) { sendError(e.message); }
         return;
@@ -187,7 +184,7 @@ async function handleStreaming(systemPrompt, userText, tabId) {
         const detail = await extractErrorDetail(response);
         // For non-2xx, fallback to re-fetch without stream flag
         try {
-            const result = await fetchRegular(systemPrompt, userText);
+            const result = await fetchRegular(systemPrompt, userText, messages);
             sendDone(result.content);
         } catch (_) { sendError(`API Error (${response.status}): ${detail}`); }
         return;
@@ -198,7 +195,7 @@ async function handleStreaming(systemPrompt, userText, tabId) {
         try {
             const data = await response.json();
             const content = data?.choices?.[0]?.message?.content || '';
-            await saveHistory(userText, content);
+            await saveHistory(userText || '', content);
             sendDone(content);
         } catch (e) { sendError(`Parse error: ${e.message}`); }
         return;
@@ -292,7 +289,16 @@ function validateSettings(apiKey, apiBaseUrl) {
 // Global encoding guard appended to every system prompt
 const ENCODING_GUARD = '\n\nQUAN TRỌNG: Không được xuất ký tự lỗi "️" (U+FFFD) trong bất kỳ trường hợp nào. Viết tất cả ký tự tiếng Việt (ê, ế, ề, ệ, ể, ễ, ơ, ớ, ờ, ợ, ở, ỡ, ...) đầy đủ và chính xác.';
 
-function apiFetch(baseUrl, apiKey, model, systemPrompt, userText, stream) {
+// Helper: build messages array from simple prompt+text (applies encoding guard to system message)
+function buildMessages(systemPrompt, userText) {
+    return [
+        { role: 'system', content: (systemPrompt || '') + ENCODING_GUARD },
+        { role: 'user', content: userText || '' },
+    ];
+}
+
+// apiFetch now accepts a pre-built messages array directly
+function apiFetch(baseUrl, apiKey, model, stream, messages) {
     return fetch(baseUrl.trim(), {
         method: 'POST',
         headers: {
@@ -302,10 +308,7 @@ function apiFetch(baseUrl, apiKey, model, systemPrompt, userText, stream) {
         body: JSON.stringify({
             model: (model || 'gpt-4o-mini').trim(),
             stream,
-            messages: [
-                { role: 'system', content: systemPrompt + ENCODING_GUARD },
-                { role: 'user', content: userText },
-            ],
+            messages, // already contains encoding guard via buildMessages()
         }),
     });
 }
