@@ -535,3 +535,30 @@
     background: rgba(139, 92, 246, 0.22);
     filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.6));
 }
+
+/* ── Math inline / block ──────────────────────────────────────── */
+
+.ai-proxy-math-inline {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.22);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.96em;
+    white-space: nowrap;
+}
+
+.ai-proxy-math-block {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.18);
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin: 8px 0;
+    text-align: center;
+    font-size: 1em;
+}

@@ -486,27 +486,119 @@
         );
     }
 
+    // ── LaTeX → Unicode converter ──────────────────────────────────────────────
+    const LATEX_SYMBOLS = {
+        '\\theta': 'θ', '\\Theta': 'Θ',
+        '\\mu': 'μ', '\\nu': 'ν',
+        '\\sigma': 'σ', '\\Sigma': 'Σ',
+        '\\pi': 'π', '\\Pi': 'Π',
+        '\\alpha': 'α', '\\beta': 'β',
+        '\\gamma': 'γ', '\\Gamma': 'Γ',
+        '\\delta': 'δ', '\\Delta': 'Δ',
+        '\\epsilon': 'ε', '\\varepsilon': 'ε',
+        '\\lambda': 'λ', '\\Lambda': 'Λ',
+        '\\phi': 'φ', '\\Phi': 'Φ',
+        '\\psi': 'ψ', '\\Psi': 'Ψ',
+        '\\omega': 'ω', '\\Omega': 'Ω',
+        '\\rho': 'ρ', '\\eta': 'η',
+        '\\xi': 'ξ', '\\chi': 'χ',
+        '\\tau': 'τ', '\\kappa': 'κ',
+        '\\zeta': 'ζ', '\\iota': 'ι',
+        '\\sum': 'Σ', '\\prod': 'Π', '\\int': '∫',
+        '\\infty': '∞', '\\partial': '∂', '\\nabla': '∇',
+        '\\log': 'log', '\\ln': 'ln', '\\exp': 'exp',
+        '\\max': 'max', '\\min': 'min', '\\arg': 'arg',
+        '\\times': '×', '\\cdot': '·', '\\div': '÷', '\\pm': '±', '\\mp': '∓',
+        '\\leq': '≤', '\\geq': '≥', '\\neq': '≠', '\\approx': '≈', '\\propto': '∝',
+        '\\in': '∈', '\\notin': '∉', '\\subset': '⊂', '\\supset': '⊃',
+        '\\cup': '∪', '\\cap': '∩',
+        '\\rightarrow': '→', '\\leftarrow': '←', '\\Rightarrow': '⇒', '\\Leftrightarrow': '⟺',
+        '\\forall': '∀', '\\exists': '∃',
+        '\\ell': 'ℓ', '\\ldots': '…', '\\cdots': '⋯',
+        '\\langle': '⟨', '\\rangle': '⟩',
+    };
+
+    const SUP_MAP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', 'n': 'ⁿ', 'T': 'ᵀ' };
+    const SUB_MAP = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', 'i': 'ᵢ', 'j': 'ⱼ', 'n': 'ₙ', 'k': 'ₖ', 'm': 'ₘ' };
+
+    function convertLatexExpr(expr) {
+        let r = expr;
+        // \frac{a}{b} → (a/b)
+        r = r.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1∕$2)');
+        // \sqrt{x} → √(x)
+        r = r.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+        r = r.replace(/\\sqrt(\w)/g, '√$1');
+        // \hat{x} \bar{x} \vec{x} \tilde{x}
+        r = r.replace(/\\hat\{([^}]*)\}/g, '$1̂');
+        r = r.replace(/\\bar\{([^}]*)\}/g, '$1̄');
+        r = r.replace(/\\vec\{([^}]*)\}/g, '$1⃗');
+        r = r.replace(/\\tilde\{([^}]*)\}/g, '$1̃');
+        // ^{...} superscript
+        r = r.replace(/\^\{([^}]*)\}/g, (_, g) => g.split('').map(c => SUP_MAP[c] || c).join(''));
+        r = r.replace(/\^(\w)/g, (_, c) => SUP_MAP[c] || '^' + c);
+        // _{...} subscript
+        r = r.replace(/_\{([^}]*)\}/g, (_, g) => g.split('').map(c => SUB_MAP[c] || c).join(''));
+        r = r.replace(/_(\w)/g, (_, c) => SUB_MAP[c] || '_' + c);
+        // Known symbols — longest first to avoid prefix collisions
+        const keys = Object.keys(LATEX_SYMBOLS).sort((a, b) => b.length - a.length);
+        for (const sym of keys) r = r.split(sym).join(LATEX_SYMBOLS[sym]);
+        // Strip remaining braces
+        r = r.replace(/[{}]/g, '');
+        return r;
+    }
+
+    function processLatex(text) {
+        // Display math: $$...$$ → block span
+        text = text.replace(/\$\$([^$]+?)\$\$/gs, (_, expr) =>
+            `\x00MATH_BLOCK\x00${convertLatexExpr(expr.trim())}\x00/MATH_BLOCK\x00`
+        );
+        // Inline math: $...$ (not $$ and not currency-like lone $)
+        text = text.replace(/\$([^$\n]{1,120}?)\$/g, (_, expr) => {
+            // Skip if it doesn't look like math (no \ or ^_ or digits only)
+            if (!/[\\^_{}]|[a-zA-Z]{2,}/.test(expr) && !/^\d/.test(expr)) return `$${expr}$`;
+            return `\x00MATH_INLINE\x00${convertLatexExpr(expr.trim())}\x00/MATH_INLINE\x00`;
+        });
+        return text;
+    }
+
     // ── Markdown formatter ─────────────────────────────────────────────────────
     function formatContent(text) {
-        const escaped = text
+        // 1. Process LaTeX BEFORE HTML escaping so $\theta$ isn't mangled
+        const withMath = processLatex(text);
+
+        // 2. Split into segments: math placeholders vs plain text
+        const parts = withMath.split(/(\x00MATH_(?:BLOCK|INLINE)\x00.*?\x00\/MATH_(?:BLOCK|INLINE)\x00)/gs);
+
+        const processedParts = parts.map((part) => {
+            const inlineMatch = part.match(/^\x00MATH_INLINE\x00([\s\S]*?)\x00\/MATH_INLINE\x00$/);
+            const blockMatch = part.match(/^\x00MATH_BLOCK\x00([\s\S]*?)\x00\/MATH_BLOCK\x00$/);
+            if (inlineMatch) return `<span class="ai-proxy-math-inline">${escapeHtml(inlineMatch[1])}</span>`;
+            if (blockMatch) return `<div  class="ai-proxy-math-block">${escapeHtml(blockMatch[1])}</div>`;
+
+            // Plain text — full markdown pipeline
+            const escaped = escapeHtml(part);
+            const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            const lines = withBold.split('\n');
+            const rendered = lines.map((line) => {
+                const t = line.trim();
+                if (/^###\s+/.test(t)) return `<h3>${t.replace(/^###\s+/, '')}</h3>`;
+                if (/^##\s+/.test(t)) return `<h2>${t.replace(/^##\s+/, '')}</h2>`;
+                if (/^#\s+/.test(t)) return `<h2>${t.replace(/^#\s+/, '')}</h2>`;
+                if (/^[-•*]\s/.test(t)) return `<li>${t.slice(2)}</li>`;
+                return t ? `<p>${t}</p>` : '';
+            }).join('');
+            return rendered.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
+        });
+
+        return processedParts.join('');
+    }
+
+    function escapeHtml(s) {
+        return s
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
-
-        const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-        const lines = withBold.split('\n');
-        const rendered = lines.map((line) => {
-            const t = line.trim();
-            if (/^###\s+/.test(t)) return `<h3>${t.replace(/^###\s+/, '')}</h3>`;
-            if (/^##\s+/.test(t)) return `<h2>${t.replace(/^##\s+/, '')}</h2>`;
-            if (/^#\s+/.test(t)) return `<h2>${t.replace(/^#\s+/, '')}</h2>`;
-            if (/^[-•*]\s/.test(t)) return `<li>${t.slice(2)}</li>`;
-            return t ? `<p>${t}</p>` : '';
-        }).join('');
-
-        return rendered.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
     }
 
 })();
