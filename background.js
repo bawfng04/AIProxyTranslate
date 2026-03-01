@@ -289,6 +289,9 @@ function validateSettings(apiKey, apiBaseUrl) {
     if (!apiBaseUrl?.trim()) throw new Error('API Base URL is not configured. Open the extension popup to set it.');
 }
 
+// Global encoding guard appended to every system prompt
+const ENCODING_GUARD = '\n\nQUAN TRỌNG: Không được xuất ký tự lỗi "️" (U+FFFD) trong bất kỳ trường hợp nào. Viết tất cả ký tự tiếng Việt (ê, ế, ề, ệ, ể, ễ, ơ, ớ, ờ, ợ, ở, ỡ, ...) đầy đủ và chính xác.';
+
 function apiFetch(baseUrl, apiKey, model, systemPrompt, userText, stream) {
     return fetch(baseUrl.trim(), {
         method: 'POST',
@@ -300,7 +303,7 @@ function apiFetch(baseUrl, apiKey, model, systemPrompt, userText, stream) {
             model: (model || 'gpt-4o-mini').trim(),
             stream,
             messages: [
-                { role: 'system', content: systemPrompt },
+                { role: 'system', content: systemPrompt + ENCODING_GUARD },
                 { role: 'user', content: userText },
             ],
         }),

@@ -215,6 +215,9 @@
             resultModal.appendChild(buildFooter(text));
         }
 
+        // Hide toolbar while modal is visible
+        hideToolbar();
+
         // Show
         resultModal.style.display = 'flex';
 
@@ -338,8 +341,9 @@
 
     function hideResultModal() {
         if (resultModal) resultModal.style.display = 'none';
-        modalIsPinned = false; // reset pin on close
+        modalIsPinned = false;
         isStreaming = false;
+        // Toolbar stays hidden; user re-selects text to bring it back
     }
 
     function hideAll() {
@@ -547,50 +551,63 @@
         return r;
     }
 
-    function processLatex(text) {
-        // Display math: $$...$$ → block span
-        text = text.replace(/\$\$([^$]+?)\$\$/gs, (_, expr) =>
-            `\x00MATH_BLOCK\x00${convertLatexExpr(expr.trim())}\x00/MATH_BLOCK\x00`
-        );
-        // Inline math: $...$ (not $$ and not currency-like lone $)
-        text = text.replace(/\$([^$\n]{1,120}?)\$/g, (_, expr) => {
-            // Skip if it doesn't look like math (no \ or ^_ or digits only)
-            if (!/[\\^_{}]|[a-zA-Z]{2,}/.test(expr) && !/^\d/.test(expr)) return `$${expr}$`;
-            return `\x00MATH_INLINE\x00${convertLatexExpr(expr.trim())}\x00/MATH_INLINE\x00`;
+    // ── Inline content renderer (bold + math, stays on one line) ──────────────
+    function renderInline(raw) {
+        // 1. Extract $...$ math into safe placeholders BEFORE html-escaping
+        //    so that < > & " inside math aren't mangled.
+        const maths = [];
+        let text = raw.replace(/\$([^$\n]{1,200}?)\$/g, (full, expr) => {
+            if (!/[\\^_{}]|[a-zA-Z]{2,}/.test(expr) && !/^\d/.test(expr)) return full;
+            const converted = convertLatexExpr(expr.trim());
+            const idx = maths.length;
+            maths.push(converted);
+            return `\x01M${idx}\x01`; // \x01 is never in normal text
         });
+
+        // 2. HTML-escape everything that remains
+        text = escapeHtml(text);
+
+        // 3. Bold: **text** (may contain math placeholders — that's fine)
+        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // 4. Restore math placeholders as styled spans
+        text = text.replace(/\x01M(\d+)\x01/g, (_, i) =>
+            `<span class="ai-proxy-math-inline">${escapeHtml(maths[+i])}</span>`
+        );
+
         return text;
     }
 
     // ── Markdown formatter ─────────────────────────────────────────────────────
     function formatContent(text) {
-        // 1. Process LaTeX BEFORE HTML escaping so $\theta$ isn't mangled
-        const withMath = processLatex(text);
+        // Handle display math ($$...$$) as full-line blocks first
+        text = text.replace(/\$\$([^$]+?)\$\$/gs, (_, expr) =>
+            `\n\x02MATHBLOCK\x02${convertLatexExpr(expr.trim())}\x02\x02\n`
+        );
 
-        // 2. Split into segments: math placeholders vs plain text
-        const parts = withMath.split(/(\x00MATH_(?:BLOCK|INLINE)\x00.*?\x00\/MATH_(?:BLOCK|INLINE)\x00)/gs);
+        const lines = text.split('\n');
+        const rendered = lines.map((line) => {
+            // Display math block
+            const blockMatch = line.match(/^\x02MATHBLOCK\x02([\s\S]*?)\x02\x02$/);
+            if (blockMatch) return `<div class="ai-proxy-math-block">${escapeHtml(blockMatch[1])}</div>`;
 
-        const processedParts = parts.map((part) => {
-            const inlineMatch = part.match(/^\x00MATH_INLINE\x00([\s\S]*?)\x00\/MATH_INLINE\x00$/);
-            const blockMatch = part.match(/^\x00MATH_BLOCK\x00([\s\S]*?)\x00\/MATH_BLOCK\x00$/);
-            if (inlineMatch) return `<span class="ai-proxy-math-inline">${escapeHtml(inlineMatch[1])}</span>`;
-            if (blockMatch) return `<div  class="ai-proxy-math-block">${escapeHtml(blockMatch[1])}</div>`;
+            const t = line.trim();
+            if (!t) return '';
 
-            // Plain text — full markdown pipeline
-            const escaped = escapeHtml(part);
-            const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            const lines = withBold.split('\n');
-            const rendered = lines.map((line) => {
-                const t = line.trim();
-                if (/^###\s+/.test(t)) return `<h3>${t.replace(/^###\s+/, '')}</h3>`;
-                if (/^##\s+/.test(t)) return `<h2>${t.replace(/^##\s+/, '')}</h2>`;
-                if (/^#\s+/.test(t)) return `<h2>${t.replace(/^#\s+/, '')}</h2>`;
-                if (/^[-•*]\s/.test(t)) return `<li>${t.slice(2)}</li>`;
-                return t ? `<p>${t}</p>` : '';
-            }).join('');
-            return rendered.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
-        });
+            // Headings
+            if (/^###\s+/.test(t)) return `<h3>${renderInline(t.replace(/^###\s+/, ''))}</h3>`;
+            if (/^##\s+/.test(t)) return `<h2>${renderInline(t.replace(/^##\s+/, ''))}</h2>`;
+            if (/^#\s+/.test(t)) return `<h2>${renderInline(t.replace(/^#\s+/, ''))}</h2>`;
 
-        return processedParts.join('');
+            // Bullets
+            if (/^[-•*]\s/.test(t)) return `<li>${renderInline(t.slice(2))}</li>`;
+
+            // Paragraph
+            return `<p>${renderInline(t)}</p>`;
+        }).join('');
+
+        // Wrap consecutive <li> in <ul>
+        return rendered.replace(/(<li>[\s\S]*?<\/li>)+/g, (m) => `<ul>${m}</ul>`);
     }
 
     function escapeHtml(s) {
@@ -600,5 +617,6 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
     }
+
 
 })();

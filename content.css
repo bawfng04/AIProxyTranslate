@@ -86,7 +86,7 @@
 #ai-proxy-toolbar {
     /* Layout */
     position: absolute;
-    z-index: 2147483647;
+    z-index: 2147483645;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -243,10 +243,12 @@
 #ai-proxy-result-modal {
     position: fixed;
     /* sticks to viewport — never scrolls with the page */
-    z-index: 2147483646;
-    width: clamp(300px, 460px, calc(100vw - 24px));
-    max-height: min(520px, calc(100vh - 60px));
-    /* firm cap → body scroll activates */
+    z-index: 2147483647;
+    /* max CSS z-index — always above everything */
+    width: clamp(360px, 660px, calc(100vw - 24px));
+    /* ×1.5 of original 440px */
+    max-height: min(680px, calc(100vh - 40px));
+    /* taller cap */
     overflow: hidden;
     display: flex;
     flex-direction: column;
