@@ -508,17 +508,22 @@
         '\\xi': 'ξ', '\\chi': 'χ',
         '\\tau': 'τ', '\\kappa': 'κ',
         '\\zeta': 'ζ', '\\iota': 'ι',
+        '\\ell': 'ℓ',
         '\\sum': 'Σ', '\\prod': 'Π', '\\int': '∫',
         '\\infty': '∞', '\\partial': '∂', '\\nabla': '∇',
         '\\log': 'log', '\\ln': 'ln', '\\exp': 'exp',
         '\\max': 'max', '\\min': 'min', '\\arg': 'arg',
+        '\\gcd': 'gcd', '\\det': 'det', '\\dim': 'dim',
         '\\times': '×', '\\cdot': '·', '\\div': '÷', '\\pm': '±', '\\mp': '∓',
         '\\leq': '≤', '\\geq': '≥', '\\neq': '≠', '\\approx': '≈', '\\propto': '∝',
+        '\\ll': '≪', '\\gg': '≫',
+        '\\mid': '|', '\\vert': '|', '\\|': '‖',
         '\\in': '∈', '\\notin': '∉', '\\subset': '⊂', '\\supset': '⊃',
         '\\cup': '∪', '\\cap': '∩',
         '\\rightarrow': '→', '\\leftarrow': '←', '\\Rightarrow': '⇒', '\\Leftrightarrow': '⟺',
+        '\\to': '→',
         '\\forall': '∀', '\\exists': '∃',
-        '\\ell': 'ℓ', '\\ldots': '…', '\\cdots': '⋯',
+        '\\ldots': '…', '\\dots': '…', '\\cdots': '⋯',
         '\\langle': '⟨', '\\rangle': '⟩',
     };
 
@@ -527,6 +532,8 @@
 
     function convertLatexExpr(expr) {
         let r = expr;
+        // \text{...} \mathrm{...} etc → plain text (must come first)
+        r = r.replace(/\\(?:text|mathrm|mathbf|mathit|mathcal|operatorname)\{([^}]*)\}/g, '$1');
         // \frac{a}{b} → (a/b)
         r = r.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1∕$2)');
         // \sqrt{x} → √(x)
@@ -551,63 +558,100 @@
         return r;
     }
 
-    // ── Inline content renderer (bold + math, stays on one line) ──────────────
+    // ── Inline renderer: bold + italic + math ($...$ and \(...\)) ─────────────
     function renderInline(raw) {
-        // 1. Extract $...$ math into safe placeholders BEFORE html-escaping
-        //    so that < > & " inside math aren't mangled.
         const maths = [];
-        let text = raw.replace(/\$([^$\n]{1,200}?)\$/g, (full, expr) => {
-            if (!/[\\^_{}]|[a-zA-Z]{2,}/.test(expr) && !/^\d/.test(expr)) return full;
-            const converted = convertLatexExpr(expr.trim());
-            const idx = maths.length;
-            maths.push(converted);
-            return `\x01M${idx}\x01`; // \x01 is never in normal text
+
+        // Extract \(...\) delimiters first
+        let text = raw.replace(/\\\((.+?)\\\)/g, (_, expr) => {
+            maths.push(convertLatexExpr(expr.trim()));
+            return `\x01M${maths.length - 1}\x01`;
         });
 
-        // 2. HTML-escape everything that remains
+        // Extract $...$ delimiters
+        text = text.replace(/\$([^$\n]{1,200}?)\$/g, (full, expr) => {
+            if (!/[\\^_{}]|[a-zA-Z]{2,}/.test(expr) && !/^\d/.test(expr)) return full;
+            maths.push(convertLatexExpr(expr.trim()));
+            return `\x01M${maths.length - 1}\x01`;
+        });
+
+        // HTML-escape the rest
         text = escapeHtml(text);
 
-        // 3. Bold: **text** (may contain math placeholders — that's fine)
+        // Bold **text**
         text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Italic *text* (skip double-asterisk)
+        text = text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
 
-        // 4. Restore math placeholders as styled spans
+        // Restore math spans
         text = text.replace(/\x01M(\d+)\x01/g, (_, i) =>
             `<span class="ai-proxy-math-inline">${escapeHtml(maths[+i])}</span>`
         );
-
         return text;
     }
 
-    // ── Markdown formatter ─────────────────────────────────────────────────────
-    function formatContent(text) {
-        // Handle display math ($$...$$) as full-line blocks first
-        text = text.replace(/\$\$([^$]+?)\$\$/gs, (_, expr) =>
-            `\n\x02MATHBLOCK\x02${convertLatexExpr(expr.trim())}\x02\x02\n`
-        );
+    // ── Table renderer ─────────────────────────────────────────────────────────
+    function renderTable(rows) {
+        const parseRow = (line) =>
+            line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        const isSeparator = (line) => /^\|[\s\-:|]+\|$/.test(line.trim());
 
-        const lines = text.split('\n');
-        const rendered = lines.map((line) => {
-            // Display math block
-            const blockMatch = line.match(/^\x02MATHBLOCK\x02([\s\S]*?)\x02\x02$/);
-            if (blockMatch) return `<div class="ai-proxy-math-block">${escapeHtml(blockMatch[1])}</div>`;
+        let html = '<table class="ai-proxy-table"><thead><tr>';
+        parseRow(rows[0]).forEach(h => { html += `<th>${renderInline(h)}</th>`; });
+        html += '</tr></thead><tbody>';
+        for (let i = 1; i < rows.length; i++) {
+            if (isSeparator(rows[i])) continue;
+            html += '<tr>';
+            parseRow(rows[i]).forEach(cell => { html += `<td>${renderInline(cell)}</td>`; });
+            html += '</tr>';
+        }
+        return html + '</tbody></table>';
+    }
+
+    // ── Main markdown formatter ────────────────────────────────────────────────
+    function formatContent(text) {
+        const outputLines = [];
+        const rawLines = text.split('\n');
+        let tableBuffer = [];
+
+        function flushTable() {
+            if (tableBuffer.length >= 2) outputLines.push(renderTable(tableBuffer));
+            else if (tableBuffer.length === 1) outputLines.push(`<p>${renderInline(tableBuffer[0])}</p>`);
+            tableBuffer = [];
+        }
+
+        for (const line of rawLines) {
+            // $$...$$ single-line display math
+            const dd = line.match(/^\s*\$\$(.+?)\$\$\s*$/);
+            if (dd) { flushTable(); outputLines.push(`<div class="ai-proxy-math-block">${escapeHtml(convertLatexExpr(dd[1].trim()))}</div>`); continue; }
+            // \[...\] display math
+            const bb = line.match(/^\s*\\\[(.+?)\\\]\s*$/);
+            if (bb) { flushTable(); outputLines.push(`<div class="ai-proxy-math-block">${escapeHtml(convertLatexExpr(bb[1].trim()))}</div>`); continue; }
+
+            // Table row
+            if (/^\s*\|.+\|/.test(line)) { tableBuffer.push(line.trim()); continue; }
+            flushTable();
 
             const t = line.trim();
-            if (!t) return '';
+            if (!t) continue;
 
-            // Headings
-            if (/^###\s+/.test(t)) return `<h3>${renderInline(t.replace(/^###\s+/, ''))}</h3>`;
-            if (/^##\s+/.test(t)) return `<h2>${renderInline(t.replace(/^##\s+/, ''))}</h2>`;
-            if (/^#\s+/.test(t)) return `<h2>${renderInline(t.replace(/^#\s+/, ''))}</h2>`;
+            if (/^###\s+/.test(t)) { outputLines.push(`<h3>${renderInline(t.replace(/^###\s+/, ''))}</h3>`); continue; }
+            if (/^##\s+/.test(t)) { outputLines.push(`<h2>${renderInline(t.replace(/^##\s+/, ''))}</h2>`); continue; }
+            if (/^#\s+/.test(t)) { outputLines.push(`<h2>${renderInline(t.replace(/^#\s+/, ''))}</h2>`); continue; }
 
-            // Bullets
-            if (/^[-•*]\s/.test(t)) return `<li>${renderInline(t.slice(2))}</li>`;
+            if (/^[-•*]\s/.test(t)) { outputLines.push(`<li>${renderInline(t.slice(2))}</li>`); continue; }
+            if (/^\d+\.\s/.test(t)) { outputLines.push(`<oli>${renderInline(t.replace(/^\d+\.\s+/, ''))}</oli>`); continue; }
 
-            // Paragraph
-            return `<p>${renderInline(t)}</p>`;
-        }).join('');
+            outputLines.push(`<p>${renderInline(t)}</p>`);
+        }
+        flushTable();
 
-        // Wrap consecutive <li> in <ul>
-        return rendered.replace(/(<li>[\s\S]*?<\/li>)+/g, (m) => `<ul>${m}</ul>`);
+        let html = outputLines.join('');
+        html = html.replace(/(<li>[\s\S]*?<\/li>)+/g, m => `<ul>${m}</ul>`);
+        html = html.replace(/(<oli>[\s\S]*?<\/oli>)+/g, m =>
+            `<ol>${m.replace(/<\/?oli>/g, s => s === '<oli>' ? '<li>' : '</li>')}</ol>`
+        );
+        return html;
     }
 
     function escapeHtml(s) {
