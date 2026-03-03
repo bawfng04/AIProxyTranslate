@@ -655,13 +655,28 @@
             return `\x01M${maths.length - 1}\x01`;
         });
 
+        // Extract `code` into placeholders before escaping
+        const codes = [];
+        text = text.replace(/`([^`\n]+)`/g, (_, code) => {
+            codes.push(code);
+            return `\x01C${codes.length - 1}\x01`;
+        });
+
         // HTML-escape the rest
         text = escapeHtml(text);
+
+        // Replace U+FFFD with subtle placeholder
+        text = text.replace(/\uFFFD+/g, '<span class="ai-proxy-char-missing" title="Character missing">?</span>');
 
         // Bold **text**
         text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         // Italic *text* (skip double-asterisk)
         text = text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+
+        // Restore code spans
+        text = text.replace(/\x01C(\d+)\x01/g, (_, i) =>
+            `<code class="ai-proxy-inline-code">${escapeHtml(codes[+i])}</code>`
+        );
 
         // Restore math spans
         text = text.replace(/\x01M(\d+)\x01/g, (_, i) =>
@@ -690,9 +705,6 @@
 
     // ── Main markdown formatter ────────────────────────────────────────────────
     function formatContent(text) {
-        // Sanitise U+FFFD replacement characters into a subtle placeholder
-        text = text.replace(/\uFFFD+/g, '<span class="ai-proxy-char-missing" title="Character missing">?</span>');
-
         const outputLines = [];
         const rawLines = text.split('\n');
         let tableBuffer = [];
@@ -718,6 +730,7 @@
             const t = line.trim();
             if (!t) continue;
 
+            if (/^####\s+/.test(t)) { outputLines.push(`<h4>${renderInline(t.replace(/^####\s+/, ''))}</h4>`); continue; }
             if (/^###\s+/.test(t)) { outputLines.push(`<h3>${renderInline(t.replace(/^###\s+/, ''))}</h3>`); continue; }
             if (/^##\s+/.test(t)) { outputLines.push(`<h2>${renderInline(t.replace(/^##\s+/, ''))}</h2>`); continue; }
             if (/^#\s+/.test(t)) { outputLines.push(`<h2>${renderInline(t.replace(/^#\s+/, ''))}</h2>`); continue; }

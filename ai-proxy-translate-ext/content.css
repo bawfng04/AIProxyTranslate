@@ -309,7 +309,8 @@
 
 /* Headings */
 .ai-proxy-modal-body h2,
-.ai-proxy-modal-body h3 {
+.ai-proxy-modal-body h3,
+.ai-proxy-modal-body h4 {
     font-weight: 700;
     line-height: 1.35;
     margin: 16px 0 6px;
@@ -324,8 +325,13 @@
     font-size: 14px;
 }
 
+.ai-proxy-modal-body h4 {
+    font-size: 13.5px;
+}
+
 .ai-proxy-modal-body h2:first-child,
-.ai-proxy-modal-body h3:first-child {
+.ai-proxy-modal-body h3:first-child,
+.ai-proxy-modal-body h4:first-child {
     margin-top: 0;
 }
 
@@ -584,6 +590,7 @@
     margin-top: 6px;
     padding-top: 10px;
 }
+
 /* ── Missing character placeholder ───────────────────────────── */
 
 .ai-proxy-char-missing {
@@ -591,4 +598,16 @@
     color: #C9B9A8;
     font-size: 0.85em;
     font-style: italic;
+}
+/* ── Inline code ─────────────────────────────────────────────── */
+
+.ai-proxy-inline-code {
+    font-family: 'SFMono-Regular', 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+    font-size: 0.88em;
+    background: #F0E8E0;
+    border: 1px solid #E0D6CC;
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: #5D4E37;
+    word-break: break-word;
 }
