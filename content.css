@@ -161,8 +161,13 @@
     position: fixed;
     z-index: 2147483647;
     width: clamp(360px, 660px, calc(100vw - 24px));
+    min-width: 300px;
+    max-width: calc(100vw - 20px);
     max-height: min(680px, calc(100vh - 40px));
+    min-height: 180px;
     overflow: hidden;
+    resize: both;
+    /* user can drag the corner to resize */
     display: flex;
     flex-direction: column;
 
@@ -578,4 +583,12 @@
     border-top: 1px solid #EDE6DE;
     margin-top: 6px;
     padding-top: 10px;
+}
+/* ── Missing character placeholder ───────────────────────────── */
+
+.ai-proxy-char-missing {
+    display: inline;
+    color: #C9B9A8;
+    font-size: 0.85em;
+    font-style: italic;
 }

@@ -690,6 +690,9 @@
 
     // ── Main markdown formatter ────────────────────────────────────────────────
     function formatContent(text) {
+        // Sanitise U+FFFD replacement characters into a subtle placeholder
+        text = text.replace(/\uFFFD+/g, '<span class="ai-proxy-char-missing" title="Character missing">?</span>');
+
         const outputLines = [];
         const rawLines = text.split('\n');
         let tableBuffer = [];
